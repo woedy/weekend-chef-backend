@@ -1,0 +1,25 @@
+sudo apt update
+
+
+
+
+docker-compose build
+
+
+docker-compose run --rm weekend_chef_app
+docker-compose up
+
+docker exec -it weekend_chef_app sh
+
+sudo chattr -i mysite
+
+sudo rm -r mysite
+
+
+
+sudo docker volume rm $(sudo docker volume ls -q)
+sudo docker rm -f $(sudo docker ps -a -q)
+sudo docker rmi $(sudo docker images -q)
+
+
+docker run -p 6379:6379 -d redis:5

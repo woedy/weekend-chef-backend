@@ -1,0 +1,72 @@
+version: "3.8"
+
+services:
+  # Redis
+  redis:
+    image: redis:alpine
+    container_name: weekend_chef_redis
+
+  # Database Postgres
+  db:
+    image: postgres
+    volumes:
+      - ./data/db:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=weekend_chef_postgres
+      - POSTGRES_USER=weekend_chef_postgres
+      - POSTGRES_PASSWORD=weekend_chef_postgres
+    container_name: weekend_chef_postgres_db
+
+  # Django Application
+  weekend_chef_app:
+    build:
+      context: .
+    volumes:
+      - .:/weekend_chef_django
+      - ./static_cdn:/var/lib/static_cdn
+    ports:
+      - 6060:6060
+    container_name: weekend_chef_app
+    command: python manage.py runserver 0.0.0.0:6060
+    depends_on:
+      - db
+
+  # React Application
+  weekend_chef_frontend:
+    build:
+      context: ../weekend_chef_frontend  # Adjust the path to your React app
+    ports:
+      - "7000:7000"  # Map to the host's port
+    environment:
+      - REACT_APP_API_URL=http://weekend_chef_app:6060  # API URL for Django service
+
+  # Celery Worker
+  celery:
+    restart: always
+    build:
+      context: .
+    command: celery -A weekend_chef_project worker -l DEBUG
+    volumes:
+      - .:/weekend_chef_django
+    container_name: weekend_chef_celery
+    depends_on:
+      - db
+      - redis
+      - weekend_chef_app
+
+  # Celery Beat
+  celery-beat:
+    restart: always
+    build:
+      context: .
+    command: celery -A weekend_chef_project beat -l DEBUG
+    volumes:
+      - .:/weekend_chef_django
+    container_name: weekend_chef_celery_beat
+    depends_on:
+      - db
+      - redis
+      - weekend_chef_app
+
+volumes:
+  static_cdn:
