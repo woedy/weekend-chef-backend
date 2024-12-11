@@ -25,19 +25,41 @@ SECRET_KEY = 'django-insecure-&xk2-+17q3xlnh_cax&u2p&ha38hrr6e1st@mstvp!l&dzol$j
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ["*"]
 
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_HOST_USER = 'etornamasamoah@gmail.com'
+EMAIL_HOST_PASSWORD = 'yrmdporxqxmrvwam'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+DEFAULT_FROM_EMAIL = 'Weekend Chef <weekendchef@gmail.com>'
+BASE_URL = '0.0.0.0:80'
 
 # Application definition
 
 INSTALLED_APPS = [
+     "daphne",
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+
+    'channels',
+
+    'corsheaders',
+
+    'rest_framework',
+    'rest_framework.authtoken',
+
+    'accounts',
+
 ]
+
+AUTH_USER_MODEL = 'accounts.User'
+
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -47,6 +69,8 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    "corsheaders.middleware.CorsMiddleware",
+
 ]
 
 ROOT_URLCONF = 'weekend_chef_project.urls'
@@ -54,7 +78,7 @@ ROOT_URLCONF = 'weekend_chef_project.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        "DIRS": [os.path.join(BASE_DIR, 'templates')],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -68,6 +92,7 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'weekend_chef_project.wsgi.application'
+ASGI_APPLICATION = "weekend_chef_project.asgi.application"
 
 
 # Database
@@ -80,6 +105,22 @@ DATABASES = {
     }
 }
 
+
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'weekend_chef_postgres',
+        'USER': 'weekend_chef_postgres',
+        'PASSWORD': 'weekend_chef_postgres',
+        'HOST': 'db',
+        'PORT': 5432,
+    }
+}
+
+
+
+CELERY_BROKER_URL = "redis://redis:6379"
+CELERY_RESULT_BACKEND = "redis://redis:6379"
 
 # Password validation
 # https://docs.djangoproject.com/en/5.1/ref/settings/#auth-password-validators
@@ -115,9 +156,64 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = "/static/"
+STATIC_ROOT = os.path.join(BASE_DIR, "static_cdn", "static_root")  # For static files
+MEDIA_URL = "/media/"
+MEDIA_ROOT = os.path.join(BASE_DIR, "media")  # Separate media files
+
+HOST_SCHEME = "http://"
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+
+FCM_SERVER_KEY = 'AAAAxOQuav4:APA91bGO5BfxGqVOvfop7ZyrFW1RePVALmhotBv4VMk67KD_IP_9aJfLnBVYQmoJpJw3ho2sKBELLcnMRFhHRl-Ri312kySP7eOLcYJgI0XmyrNZ9CR9fu28bnZn7u5W53dV8Q-4W6oU'
+
+
+from celery import Celery
+app = Celery('weekend_chef_project')
+app.config_from_object('django.conf:settings', namespace='CELERY')
+app.autodiscover_tasks()
+
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {
+            "hosts": [("redis", 6379)],
+        },
+    },
+}
+
+
+
+CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOWED_ORIGINS = []
+
+CORS_ALLOW_CREDENTIALS = True
+CSRF_TRUSTED_ORIGINS = []
+
+
+
+PUSHER_APP_ID = '1875922'
+PUSHER_KEY = '88ff191e00149bfda666'
+PUSHER_SECRET = '3cb983d4c5b0ff21cb0f'
+PUSHER_CLUSTER = 'mt1'
+PUSHER_SSL = True
+
+
+#PAYSTACK_SECRET_KEY = 'sk_test_6ff0bf30279f1acafb4ac3e565a0bba4f56c940e'
+#MNOTIFY_KEY = 'MsxG8Cc6cjRqjJzEZTtjlHBYb'
+#MNOTIFY_SENDER_ID = 'BookedNise'
+
+
+GOOGLE_API_KEY = 'AIzaSyCAw7IbX2OgFTlcOiEZ5kTWMPQJ1JeC7mI'
+
+
+# MinIO Configuration
+MINIO_ENDPOINT = "your-minio-endpoint"  # e.g., 'play.min.io'
+MINIO_ACCESS_KEY = "your-access-key"
+MINIO_SECRET_KEY = "your-secret-key"
+MINIO_BUCKET_NAME = "your-bucket-name"
+MINIO_USE_SSL = False  # Set to True if your MinIO is set up with SSL (HTTPS)
