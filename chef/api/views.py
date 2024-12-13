@@ -9,7 +9,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from accounts.api.custom_jwt import CustomJWTAuthentication
-from accounts.api.views import is_valid_email, check_email_exist
+from accounts.api.client_views import is_valid_email, check_email_exist
 from activities.models import AllActivity
 from clients.api.serializers import AllClientsSerializer, ClientDetailsSerializer, AllClientComplaintsSerializer, \
     ClientComplaintDetailSerializer
@@ -21,7 +21,7 @@ User = get_user_model()
 
 @api_view(['POST', ])
 @permission_classes([IsAuthenticated, ])
-@authentication_classes([CustomJWTAuthentication, ])
+@authentication_classes([TokenAuthentication, ])
 def add_client(request):
     payload = {}
     data = {}

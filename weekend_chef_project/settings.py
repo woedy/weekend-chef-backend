@@ -10,6 +10,8 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.1/ref/settings/
 """
 
+from datetime import timedelta
+import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -30,9 +32,11 @@ ALLOWED_HOSTS = ["*"]
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_HOST_USER = 'etornamasamoah@gmail.com'
-EMAIL_HOST_PASSWORD = 'yrmdporxqxmrvwam'
-EMAIL_PORT = 587
-EMAIL_USE_TLS = True
+EMAIL_HOST_PASSWORD = 'nygmdsnhaxxlrsem'
+#EMAIL_PORT = 587
+#EMAIL_USE_TLS = True
+EMAIL_PORT = 465
+EMAIL_USE_SSL = True
 DEFAULT_FROM_EMAIL = 'Weekend Chef <weekendchef@gmail.com>'
 BASE_URL = '0.0.0.0:80'
 
@@ -55,6 +59,12 @@ INSTALLED_APPS = [
     'rest_framework.authtoken',
 
     'accounts',
+    'activities',
+    'bank_account',
+    'chef',
+    'clients',
+    'week_admin',
+    'food'
 
 ]
 
@@ -106,16 +116,16 @@ DATABASES = {
 }
 
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'weekend_chef_postgres',
-        'USER': 'weekend_chef_postgres',
-        'PASSWORD': 'weekend_chef_postgres',
-        'HOST': 'db',
-        'PORT': 5432,
-    }
-}
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.postgresql',
+#         'NAME': 'weekend_chef_postgres',
+#         'USER': 'weekend_chef_postgres',
+#         'PASSWORD': 'weekend_chef_postgres',
+#         'HOST': 'db',
+#         'PORT': 5432,
+#     }
+# }
 
 
 
@@ -185,6 +195,24 @@ CHANNEL_LAYERS = {
         },
     },
 }
+
+
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+        # Add other authentication classes as needed
+    ),
+}
+
+
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(days=1),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
+}
+
+
+
 
 
 

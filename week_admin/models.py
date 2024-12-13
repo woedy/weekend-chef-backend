@@ -1,7 +1,14 @@
 from django.db import models
+from django.db.models.signals import pre_save
+from django.contrib.auth import get_user_model
+
+from weekend_chef_project.utils import unique_admin_id_generator
+
+
+User = get_user_model()
 
 class WeekendChefAdmin(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='admin')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='week_admin')
     admin_id = models.CharField(max_length=200, null=True, blank=True)
     
     

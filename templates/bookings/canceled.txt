@@ -1,0 +1,1 @@
+The booking with booking id: {{booking_id}} for {{package_name}} on the {{booking_date}} , {{booking_time}} by {{client_name}} was cacelled. Contact support if you are not satisfied with this decision.

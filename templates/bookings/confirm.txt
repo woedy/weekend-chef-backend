@@ -1,0 +1,11 @@
+The booking details are as follows:
+Booking Id: {{booking_id}}
+Date: {{booking_date}}
+Time: {{booking_time}}
+Price: {{package_price}}
+Client Name: {{client_name}}
+Booked Staff: {{booked_staff_name}}
+Booked Package: {{package_name}}
+User Notes: {{user_notes}}
+Amount Paid: {{amount_paid}}
+Amount Left to Pay: {{left_to_pay}}

@@ -1,0 +1,12 @@
+Booking Id: {{booking_id}}
+Previouse Date: {{old_date}}
+Previous Time: {{old_time}}
+New Date: {{new_date}}
+New Time: {{new_time}}
+Client Name: {{client_name}}
+Booked Staff: {{booked_staff_name}}
+Booked Package: {{package_name}}
+User Notes: {{user_notes}}
+
+
+

@@ -1,0 +1,12 @@
+Hello {{ full_name }},
+
+
+Your email confirmation code is
+
+{{email_token}}
+
+Once you activate, you can log in !
+
+Thank you,
+
+Weekend Chef

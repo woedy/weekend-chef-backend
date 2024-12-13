@@ -3,21 +3,21 @@ from django.contrib.auth import get_user_model
 from django.utils import timezone
 from django.db.models.signals import pre_save
 
-from bookednise_pro.utils import unique_account_id_generator, unique_transaction_id_generator
+from weekend_chef_project.utils import unique_account_id_generator, unique_transaction_id_generator
 
 
 class BankAccount(models.Model):
 
     user = models.ForeignKey(get_user_model(), on_delete=models.CASCADE, related_name='bank_accounts')
     account_id = models.CharField(max_length=20, unique=True)
-    balance = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    balance = models.DecimalField(max_digits=15, decimal_places=2, default=0.00)
 
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
     is_active = models.BooleanField(default=True)
 
     def __str__(self):
-        return f"{self.user.full_name} - {self.account_id}"
+        return f"{self.user.first_name} {self.user.last_name} - {self.account_id}"
 
     def deposit(self, amount, description=None):
         if amount > 0:
