@@ -277,8 +277,8 @@ def unarchive_food_category(request):
         food_category.save()
 
         new_activity = AllActivity.objects.create(
-            subject="Food Category unarchived",
-            body="Food Category unarchived"
+            subject="Food Category unarchived.",
+            body="Food Category unarchived."
         )
         new_activity.save()
 

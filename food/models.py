@@ -41,10 +41,16 @@ pre_save.connect(pre_save_dish_id_receiver, sender=Dish)
 
 
 class DishIngredient(models.Model):
+    ingredient_id = models.CharField(max_length=255, blank=True, null=True, unique=True)
+
     name = models.CharField(max_length=200)
     dish = models.ForeignKey(Dish, on_delete=models.CASCADE)
     description = models.TextField()
     photo = models.ImageField(upload_to='dish/ingredient/', null=True, blank=True)
+
+    category = models.CharField(max_length=50, choices=[('Solid', 'Solid'), ('Liquid', 'Liquid')], default='Solid')
+    unit = models.CharField(max_length=50)  # Unit of measurement (kg, g, L, mL, cups, etc.)
+    price_per_unit = models.DecimalField(max_digits=10, decimal_places=2, default=0)  # Optional field for price tracking
 
     is_archived = models.BooleanField(default=False)
 
@@ -52,10 +58,20 @@ class DishIngredient(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+
+def pre_save_ingredient_id_receiver(sender, instance, *args, **kwargs):
+    if not instance.ingredient_id:
+        instance.ingredient_id = unique_ingredient_id_generator(instance)
+
+pre_save.connect(pre_save_ingredient_id_receiver, sender=DishIngredient)
+
+
+
 class DishGallery(models.Model):
-    name = models.CharField(max_length=200)
+    dish_gallery_id = models.CharField(max_length=255, blank=True, null=True, unique=True)
+
     dish = models.ForeignKey(Dish, on_delete=models.CASCADE)
-    description = models.TextField()
+    caption = models.TextField()
     photo = models.ImageField(upload_to='dish/gallery/', null=True, blank=True)
 
     is_archived = models.BooleanField(default=False)
@@ -63,3 +79,11 @@ class DishGallery(models.Model):
     active = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+
+def pre_save_dish_gallery_id_receiver(sender, instance, *args, **kwargs):
+    if not instance.dish_gallery_id:
+        instance.dish_gallery_id = unique_dish_gallery_id_generator(instance)
+
+pre_save.connect(pre_save_dish_gallery_id_receiver, sender=DishGallery)
+

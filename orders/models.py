@@ -3,6 +3,7 @@ from django.db import models
 # Cart model
 class Cart(models.Model):
     client = models.OneToOneField(Client, related_name='cart', on_delete=models.CASCADE)
+    purchased = models.BooleanField(default=False)  # Add purchased field
     created_at = models.DateTimeField(default=timezone.now)
 
     def __str__(self):
@@ -18,7 +19,7 @@ class CustomizationOption(models.Model):
     OPTION_TYPES = [
         ('Meat', 'Meat'),
         ('Spice', 'Spice'),
-                ('Dough Type', 'Dough Type'),
+        ('Dough Type', 'Dough Type'),
 
         ('Other', 'Other'),
     ]
@@ -51,7 +52,6 @@ class CartItem(models.Model):
     dish = models.ForeignKey(Dish, related_name='cart_items', on_delete=models.CASCADE)
     is_custom = models.BooleanField(default=False)
     quantity = models.PositiveIntegerField()
-    purchased = models.BooleanField(default=False)  # Add purchased field
 
     customizations = models.ManyToManyField(CustomizationValue, related_name='cart_items', blank=True)
     special_notes = models.TextField(max_length=100)
@@ -88,7 +88,6 @@ class Order(models.Model):
     chef = models.ForeignKey(ChefProfile, related_name='chef_orders', on_delete=models.CASCADE)
     dispatch = models.ForeignKey(DispatchDriver, related_name='dispatch_orders', on_delete=models.CASCADE)
 
-    status = models.CharField(max_length=20, choices=status_choices, default='Pending')
     total_price = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     paid = models.BooleanField(default=False)
 
@@ -178,3 +177,22 @@ class OrderRating(models.Model):
     active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+
+
+
+class ShoppingList(models.Model):
+    order_item = models.ForeignKey(OrderItem, related_name='shopping_lists', on_delete=models.CASCADE)
+    ingredient = models.ForeignKey(Ingredient, related_name='shopping_lists', on_delete=models.CASCADE)
+    quantity = models.DecimalField(max_digits=6, decimal_places=2)  # Quantity needed for the order item
+    unit = models.CharField(max_length=50)  # Unit of the ingredient (kg, grams, liters, etc.)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.quantity} {self.unit} of {self.ingredient.name} for {self.order_item.dish.name}"
+
+
+
+

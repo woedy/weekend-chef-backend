@@ -10,7 +10,7 @@ from rest_framework.authentication import TokenAuthentication
 
 
 from activities.models import AllActivity
-from food.api.serializers import AllDishsSerializer
+from food.api.serializers import AllDishsSerializer, DishDetailsSerializer
 from food.models import Dish, FoodCategory
 
 User = get_user_model()
@@ -126,7 +126,7 @@ def get_all_dishs_view(request):
     all_dishs_serializer = AllDishsSerializer(paginated_dishs, many=True)
 
 
-    data['dishs'] = all_dishs_serializer.data
+    data['dishes'] = all_dishs_serializer.data
     data['pagination'] = {
         'page_number': paginated_dishs.number,
         'total_pages': paginator.num_pages,
@@ -183,27 +183,48 @@ def edit_dish(request):
     errors = {}
 
     if request.method == 'POST':
-        id = request.data.get('id', "")
+        dish_id = request.data.get('dish_id', "")
         name = request.data.get('name', "")
         description = request.data.get('description', "")
-        photo = request.data.get('photo', "")
+        category_id = request.data.get('category_id', "")
+        cover_photo = request.data.get('cover_photo', "")
+        base_price = request.data.get('base_price', "")
+        quantity = request.data.get('quantity', "")
 
+
+        if not dish_id:
+            errors['dish_id'] = ['Dish ID is required.']
 
         if not name:
             errors['name'] = ['Name is required.']
 
-        if not id:
-            errors['id'] = ['ID is required.']
+        if not category_id:
+            errors['category_id'] = ['Category is required.']
 
+        if not cover_photo:
+            errors['cover_photo'] = ['Cover photo is required.']
+
+        if not base_price:
+            errors['base_price'] = ['Base Price is required.']
+        if not quantity:
+            errors['quantity'] = ['Quantity is required.']
+
+        if not description:
+            errors['description'] = ['Description is required.']
 
      # Check if the name is already taken
         if Dish.objects.filter(name=name).exists():
-            errors['name'] = ['A food category with this name already exists.']
+            errors['name'] = ['A Dish with this name already exists.']
 
         try:
-            dish = Dish.objects.get(id=id)
+            dish = Dish.objects.get(dish_id=dish_id)
         except:
             errors['dish_id'] = ['Dish does not exist.']
+
+        try:
+            category = FoodCategory.objects.get(id=category_id)
+        except:
+            errors['category_id'] = ['Food category does not exist.']
 
         if errors:
             payload['message'] = "Errors"
@@ -213,10 +234,16 @@ def edit_dish(request):
         # Update fields only if provided and not empty
         if name:
             dish.name = name
+        if category:
+            dish.category = category
         if description:
             dish.description = description
-        if photo:
-            dish.photo = photo
+        if cover_photo:
+            dish.cover_photo = cover_photo
+        if base_price:
+            dish.base_price = base_price
+        if quantity:
+            dish.quantity = quantity
 
         dish.save()
 
@@ -224,7 +251,7 @@ def edit_dish(request):
 
 
         new_activity = AllActivity.objects.create(
-            subject="Food Category Edited",
+            subject="Dish Edited",
             body=f"{dish.name} was edited."
         )
         new_activity.save()
@@ -244,15 +271,15 @@ def archive_dish(request):
     errors = {}
 
     if request.method == 'POST':
-        id = request.data.get('id', "")
+        dish_id = request.data.get('dish_id', "")
 
-        if not id:
-            errors['id'] = ['Food Category ID is required.']
+        if not dish_id:
+            errors['dish_id'] = ['Dish ID is required.']
 
         try:
-            dish = Dish.objects.get(id=id)
+            dish = Dish.objects.get(dish_id=dish_id)
         except:
-            errors['id'] = ['Food Category does not exist.']
+            errors['dish_id'] = ['Dish does not exist.']
 
 
         if errors:
@@ -264,8 +291,8 @@ def archive_dish(request):
         dish.save()
 
         new_activity = AllActivity.objects.create(
-            subject="Food Category Archived",
-            body="Food Category Archived"
+            subject="Dish Archived",
+            body="Dish Archived"
         )
         new_activity.save()
 
@@ -285,15 +312,15 @@ def unarchive_dish(request):
     errors = {}
 
     if request.method == 'POST':
-        id = request.data.get('id', "")
+        dish_id = request.data.get('dish_id', "")
 
-        if not id:
-            errors['id'] = ['Food Category ID is required.']
+        if not dish_id:
+            errors['dish_id'] = ['Dish ID is required.']
 
         try:
-            dish = Dish.objects.get(id=id)
+            dish = Dish.objects.get(dish_id=dish_id)
         except:
-            errors['id'] = ['Food Category does not exist.']
+            errors['dish_id'] = ['Dish does not exist.']
 
 
         if errors:
@@ -305,8 +332,8 @@ def unarchive_dish(request):
         dish.save()
 
         new_activity = AllActivity.objects.create(
-            subject="Food Category unarchived",
-            body="Food Category unarchived"
+            subject="Dish unarchived",
+            body="Dish unarchived"
         )
         new_activity.save()
 
@@ -317,9 +344,7 @@ def unarchive_dish(request):
 
 
 
-@api_view(['GET', ])
-@permission_classes([IsAuthenticated, ])
-@authentication_classes([TokenAuthentication, ])
+
 def get_all_archived_dishs_view(request):
     payload = {}
     data = {}
@@ -327,6 +352,7 @@ def get_all_archived_dishs_view(request):
 
     search_query = request.query_params.get('search', '')
     page_number = request.query_params.get('page', 1)
+    category = request.query_params.get('category', '')
     page_size = 10
 
     all_dishs = Dish.objects.all().filter(is_archived=True)
@@ -336,8 +362,13 @@ def get_all_archived_dishs_view(request):
         all_dishs = all_dishs.filter(
             Q(name__icontains=search_query) 
         
-        )
+        ).distinct() 
 
+        # Filter by service category if provided
+    if category:
+        all_dishs = all_dishs.filter(
+            category__name__icontains=category
+        ).distinct()
 
     paginator = Paginator(all_dishs, page_size)
 
@@ -351,7 +382,7 @@ def get_all_archived_dishs_view(request):
     all_dishs_serializer = AllDishsSerializer(paginated_dishs, many=True)
 
 
-    data['dishs'] = all_dishs_serializer.data
+    data['dishes'] = all_dishs_serializer.data
     data['pagination'] = {
         'page_number': paginated_dishs.number,
         'total_pages': paginator.num_pages,
@@ -375,15 +406,15 @@ def delete_dish(request):
     errors = {}
 
     if request.method == 'POST':
-        id = request.data.get('id', "")
+        dish_id = request.data.get('dish_id', "")
 
-        if not id:
-            errors['id'] = ['Food Category ID is required.']
+        if not dish_id:
+            errors['dish_id'] = ['Dish ID is required.']
 
         try:
-            dish = Dish.objects.get(id=id)
+            dish = Dish.objects.get(dish_id=dish_id)
         except:
-            errors['id'] = ['Food Category does not exist.']
+            errors['dish_id'] = ['Dish does not exist.']
 
 
         if errors:
