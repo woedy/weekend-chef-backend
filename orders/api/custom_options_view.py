@@ -10,8 +10,8 @@ from rest_framework.authentication import TokenAuthentication
 
 
 from activities.models import AllActivity
-from food.api.serializers import AllDishsSerializer, DishDetailsSerializer
-from food.models import Dish, FoodCategory
+from food.api.serializers import AllCustomOptionsSerializer, CustomOptionDetailsSerializer
+from food.models import CustomOption, FoodCategory
 
 User = get_user_model()
 
@@ -19,45 +19,37 @@ User = get_user_model()
 @api_view(['POST', ])
 @permission_classes([IsAuthenticated, ])
 @authentication_classes([TokenAuthentication, ])
-def add_dish(request):
+def add_custom_option(request):
     payload = {}
     data = {}
     errors = {}
 
     if request.method == 'POST':
+        option_type = request.data.get('option_type', "")
         name = request.data.get('name', "")
         description = request.data.get('description', "")
-        category_id = request.data.get('category_id', "")
-        cover_photo = request.data.get('cover_photo', "")
-        base_price = request.data.get('base_price', "")
-        quantity = request.data.get('quantity', "")
+        photo = request.data.get('photo', "")
+        price = request.data.get('price', "")
+
+
+        if not option_type:
+            errors['option_type'] = ['Option type is required.']
 
 
         if not name:
             errors['name'] = ['Name is required.']
 
-        if not category_id:
-            errors['category_id'] = ['Category is required.']
+      
 
-        if not cover_photo:
-            errors['cover_photo'] = ['Cover photo is required.']
-
-        if not base_price:
-            errors['base_price'] = ['Base Price is required.']
-        if not quantity:
-            errors['quantity'] = ['Quantity is required.']
+        if not price:
+            errors['price'] = ['Price is required.']
 
         if not description:
             errors['description'] = ['Description is required.']
 
      # Check if the name is already taken
-        if Dish.objects.filter(name=name).exists():
-            errors['name'] = ['A Dish with this name already exists.']
-
-        try:
-            category = FoodCategory.objects.get(id=category_id)
-        except:
-            errors['category_id'] = ['Food category does not exist.']
+        if CustomOption.objects.filter(name=name).exists():
+            errors['name'] = ['A CustomOption with this name already exists.']
 
         if errors:
             payload['message'] = "Errors"
@@ -65,20 +57,17 @@ def add_dish(request):
             return Response(payload, status=status.HTTP_400_BAD_REQUEST)
 
 
-        dish = Dish.objects.create(
-            category=category,
+        custom_option = CustomOption.objects.create(
             name=name,
             description=description,
-            cover_photo=cover_photo,
-            base_price=base_price,
-            quantity=quantity,
-
+            photo=photo,
+            price=price,
         )
 
-        data["dish_id"] = dish.dish_id
-        data["name"] = dish.name
-        data["description"] = dish.description
-        data["cover_photo"] = dish.cover_photo.url
+        data["custom_option_id"] = custom_option.custom_option_id
+        data["option_type"] = custom_option.option_type
+        data["name"] = custom_option.name
+        data["description"] = custom_option.description
      
 
         payload['message'] = "Successful"
@@ -89,7 +78,7 @@ def add_dish(request):
 @api_view(['GET', ])
 @permission_classes([IsAuthenticated, ])
 @authentication_classes([TokenAuthentication, ])
-def get_all_dishs_view(request):
+def get_all_custom_options_view(request):
     payload = {}
     data = {}
     errors = {}
@@ -99,39 +88,39 @@ def get_all_dishs_view(request):
     category = request.query_params.get('category', '')
     page_size = 10
 
-    all_dishs = Dish.objects.all().filter(is_archived=False)
+    all_custom_options = CustomOption.objects.all().filter(is_archived=False)
 
 
     if search_query:
-        all_dishs = all_dishs.filter(
+        all_custom_options = all_custom_options.filter(
             Q(name__icontains=search_query) 
         
         ).distinct() 
 
         # Filter by service category if provided
     if category:
-        all_dishs = all_dishs.filter(
+        all_custom_options = all_custom_options.filter(
             category__name__icontains=category
         ).distinct()
 
-    paginator = Paginator(all_dishs, page_size)
+    paginator = Paginator(all_custom_options, page_size)
 
     try:
-        paginated_dishs = paginator.page(page_number)
+        paginated_custom_options = paginator.page(page_number)
     except PageNotAnInteger:
-        paginated_dishs = paginator.page(1)
+        paginated_custom_options = paginator.page(1)
     except EmptyPage:
-        paginated_dishs = paginator.page(paginator.num_pages)
+        paginated_custom_options = paginator.page(paginator.num_pages)
 
-    all_dishs_serializer = AllDishsSerializer(paginated_dishs, many=True)
+    all_custom_options_serializer = AllCustomOptionsSerializer(paginated_custom_options, many=True)
 
 
-    data['dishes'] = all_dishs_serializer.data
+    data['custom_optiones'] = all_custom_options_serializer.data
     data['pagination'] = {
-        'page_number': paginated_dishs.number,
+        'page_number': paginated_custom_options.number,
         'total_pages': paginator.num_pages,
-        'next': paginated_dishs.next_page_number() if paginated_dishs.has_next() else None,
-        'previous': paginated_dishs.previous_page_number() if paginated_dishs.has_previous() else None,
+        'next': paginated_custom_options.next_page_number() if paginated_custom_options.has_next() else None,
+        'previous': paginated_custom_options.previous_page_number() if paginated_custom_options.has_previous() else None,
     }
 
     payload['message'] = "Successful"
@@ -143,47 +132,47 @@ def get_all_dishs_view(request):
 @api_view(['GET', ])
 @permission_classes([IsAuthenticated, ])
 @authentication_classes([TokenAuthentication, ])
-def get_dish_details_view(request):
+def get_custom_option_details_view(request):
     payload = {}
     data = {}
     errors = {}
 
-    dish_id = request.query_params.get('dish_id', None)
+    custom_option_id = request.query_params.get('custom_option_id', None)
 
-    if not dish_id:
-        errors['dish_id'] = ["Dish id required"]
+    if not custom_option_id:
+        errors['custom_option_id'] = ["CustomOption id required"]
 
     try:
-        dish = Dish.objects.get(dish_id=dish_id)
-    except Dish.DoesNotExist:
-        errors['dish_id'] = ['Dish does not exist.']
+        custom_option = CustomOption.objects.get(custom_option_id=custom_option_id)
+    except CustomOption.DoesNotExist:
+        errors['custom_option_id'] = ['CustomOption does not exist.']
 
     if errors:
         payload['message'] = "Errors"
         payload['errors'] = errors
         return Response(payload, status=status.HTTP_400_BAD_REQUEST)
 
-    dish_serializer = DishDetailsSerializer(dish, many=False)
-    if dish_serializer:
-        dish = dish_serializer.data
+    custom_option_serializer = CustomOptionDetailsSerializer(custom_option, many=False)
+    if custom_option_serializer:
+        custom_option = custom_option_serializer.data
 
-    dish_serializer = DishDetailsSerializer(dish, many=False)
+    custom_option_serializer = CustomOptionDetailsSerializer(custom_option, many=False)
 
     payload['message'] = "Successful"
-    payload['data'] = dish
+    payload['data'] = custom_option
 
     return Response(payload, status=status.HTTP_200_OK)
 
 @api_view(['POST', ])
 @permission_classes([IsAuthenticated, ])
 @authentication_classes([TokenAuthentication, ])
-def edit_dish_view(request):
+def edit_custom_option_view(request):
     payload = {}
     data = {}
     errors = {}
 
     if request.method == 'POST':
-        dish_id = request.data.get('dish_id', "")
+        custom_option_id = request.data.get('custom_option_id', "")
         name = request.data.get('name', "")
         description = request.data.get('description', "")
         category_id = request.data.get('category_id', "")
@@ -192,22 +181,22 @@ def edit_dish_view(request):
         quantity = request.data.get('quantity', "")
 
 
-        if not dish_id:
-            errors['dish_id'] = ['Dish ID is required.']
-        if not dish_id:
-            errors['dish_id'] = ["Dish id required"]
+        if not custom_option_id:
+            errors['custom_option_id'] = ['CustomOption ID is required.']
+        if not custom_option_id:
+            errors['custom_option_id'] = ["CustomOption id required"]
 
         if not description:
             errors['description'] = ['Description is required.']
 
         # Check if the name is already taken
-        if Dish.objects.filter(name=name).exists():
-            errors['name'] = ['A Dish with this name already exists.']
+        if CustomOption.objects.filter(name=name).exists():
+            errors['name'] = ['A CustomOption with this name already exists.']
 
         try:
-            dish = Dish.objects.get(dish_id=dish_id)
+            custom_option = CustomOption.objects.get(custom_option_id=custom_option_id)
         except:
-            errors['dish_id'] = ['Dish does not exist.']
+            errors['custom_option_id'] = ['CustomOption does not exist.']
 
         try:
             category = FoodCategory.objects.get(id=category_id)
@@ -221,26 +210,26 @@ def edit_dish_view(request):
 
         # Update fields only if provided and not empty
         if name:
-            dish.name = name
+            custom_option.name = name
         if category:
-            dish.category = category
+            custom_option.category = category
         if description:
-            dish.description = description
+            custom_option.description = description
         if cover_photo:
-            dish.cover_photo = cover_photo
+            custom_option.cover_photo = cover_photo
         if base_price:
-            dish.base_price = base_price
+            custom_option.base_price = base_price
         if quantity:
-            dish.quantity = quantity
+            custom_option.quantity = quantity
 
-        dish.save()
+        custom_option.save()
 
-        data["name"] = dish.name
+        data["name"] = custom_option.name
 
 
         new_activity = AllActivity.objects.create(
-            subject="Dish Edited",
-            body=f"{dish.name} was edited."
+            subject="CustomOption Edited",
+            body=f"{custom_option.name} was edited."
         )
         new_activity.save()
 
@@ -253,21 +242,21 @@ def edit_dish_view(request):
 @api_view(['POST', ])
 @permission_classes([IsAuthenticated, ])
 @authentication_classes([TokenAuthentication, ])
-def archive_dish(request):
+def archive_custom_option(request):
     payload = {}
     data = {}
     errors = {}
 
     if request.method == 'POST':
-        dish_id = request.data.get('dish_id', "")
+        custom_option_id = request.data.get('custom_option_id', "")
 
-        if not dish_id:
-            errors['dish_id'] = ['Dish ID is required.']
+        if not custom_option_id:
+            errors['custom_option_id'] = ['CustomOption ID is required.']
 
         try:
-            dish = Dish.objects.get(dish_id=dish_id)
+            custom_option = CustomOption.objects.get(custom_option_id=custom_option_id)
         except:
-            errors['dish_id'] = ['Dish does not exist.']
+            errors['custom_option_id'] = ['CustomOption does not exist.']
 
 
         if errors:
@@ -275,12 +264,12 @@ def archive_dish(request):
             payload['errors'] = errors
             return Response(payload, status=status.HTTP_400_BAD_REQUEST)
 
-        dish.is_archived = True
-        dish.save()
+        custom_option.is_archived = True
+        custom_option.save()
 
         new_activity = AllActivity.objects.create(
-            subject="Dish Archived",
-            body="Dish Archived"
+            subject="CustomOption Archived",
+            body="CustomOption Archived"
         )
         new_activity.save()
 
@@ -294,21 +283,21 @@ def archive_dish(request):
 @api_view(['POST', ])
 @permission_classes([IsAuthenticated, ])
 @authentication_classes([TokenAuthentication, ])
-def unarchive_dish(request):
+def unarchive_custom_option(request):
     payload = {}
     data = {}
     errors = {}
 
     if request.method == 'POST':
-        dish_id = request.data.get('dish_id', "")
+        custom_option_id = request.data.get('custom_option_id', "")
 
-        if not dish_id:
-            errors['dish_id'] = ['Dish ID is required.']
+        if not custom_option_id:
+            errors['custom_option_id'] = ['CustomOption ID is required.']
 
         try:
-            dish = Dish.objects.get(dish_id=dish_id)
+            custom_option = CustomOption.objects.get(custom_option_id=custom_option_id)
         except:
-            errors['dish_id'] = ['Dish does not exist.']
+            errors['custom_option_id'] = ['CustomOption does not exist.']
 
 
         if errors:
@@ -316,12 +305,12 @@ def unarchive_dish(request):
             payload['errors'] = errors
             return Response(payload, status=status.HTTP_400_BAD_REQUEST)
 
-        dish.is_archived = False
-        dish.save()
+        custom_option.is_archived = False
+        custom_option.save()
 
         new_activity = AllActivity.objects.create(
-            subject="Dish unarchived",
-            body="Dish unarchived"
+            subject="CustomOption unarchived",
+            body="CustomOption unarchived"
         )
         new_activity.save()
 
@@ -335,7 +324,7 @@ def unarchive_dish(request):
 @api_view(['GET', ])
 @permission_classes([IsAuthenticated, ])
 @authentication_classes([TokenAuthentication, ])
-def get_all_archived_dishs_view(request):
+def get_all_archived_custom_options_view(request):
     payload = {}
     data = {}
     errors = {}
@@ -345,39 +334,39 @@ def get_all_archived_dishs_view(request):
     category = request.query_params.get('category', '')
     page_size = 10
 
-    all_dishs = Dish.objects.all().filter(is_archived=True)
+    all_custom_options = CustomOption.objects.all().filter(is_archived=True)
 
 
     if search_query:
-        all_dishs = all_dishs.filter(
+        all_custom_options = all_custom_options.filter(
             Q(name__icontains=search_query) 
         
         ).distinct() 
 
         # Filter by service category if provided
     if category:
-        all_dishs = all_dishs.filter(
+        all_custom_options = all_custom_options.filter(
             category__name__icontains=category
         )
 
-    paginator = Paginator(all_dishs, page_size)
+    paginator = Paginator(all_custom_options, page_size)
 
     try:
-        paginated_dishs = paginator.page(page_number)
+        paginated_custom_options = paginator.page(page_number)
     except PageNotAnInteger:
-        paginated_dishs = paginator.page(1)
+        paginated_custom_options = paginator.page(1)
     except EmptyPage:
-        paginated_dishs = paginator.page(paginator.num_pages)
+        paginated_custom_options = paginator.page(paginator.num_pages)
 
-    all_dishs_serializer = AllDishsSerializer(paginated_dishs, many=True)
+    all_custom_options_serializer = AllCustomOptionsSerializer(paginated_custom_options, many=True)
 
 
-    data['dishes'] = all_dishs_serializer.data
+    data['custom_optiones'] = all_custom_options_serializer.data
     data['pagination'] = {
-        'page_number': paginated_dishs.number,
+        'page_number': paginated_custom_options.number,
         'total_pages': paginator.num_pages,
-        'next': paginated_dishs.next_page_number() if paginated_dishs.has_next() else None,
-        'previous': paginated_dishs.previous_page_number() if paginated_dishs.has_previous() else None,
+        'next': paginated_custom_options.next_page_number() if paginated_custom_options.has_next() else None,
+        'previous': paginated_custom_options.previous_page_number() if paginated_custom_options.has_previous() else None,
     }
 
     payload['message'] = "Successful"
@@ -390,21 +379,21 @@ def get_all_archived_dishs_view(request):
 @api_view(['POST', ])
 @permission_classes([IsAuthenticated, ])
 @authentication_classes([TokenAuthentication, ])
-def delete_dish(request):
+def delete_custom_option(request):
     payload = {}
     data = {}
     errors = {}
 
     if request.method == 'POST':
-        dish_id = request.data.get('dish_id', "")
+        custom_option_id = request.data.get('custom_option_id', "")
 
-        if not dish_id:
-            errors['dish_id'] = ['Dish ID is required.']
+        if not custom_option_id:
+            errors['custom_option_id'] = ['CustomOption ID is required.']
 
         try:
-            dish = Dish.objects.get(dish_id=dish_id)
+            custom_option = CustomOption.objects.get(custom_option_id=custom_option_id)
         except:
-            errors['dish_id'] = ['Dish does not exist.']
+            errors['custom_option_id'] = ['CustomOption does not exist.']
 
 
         if errors:
@@ -412,7 +401,7 @@ def delete_dish(request):
             payload['errors'] = errors
             return Response(payload, status=status.HTTP_400_BAD_REQUEST)
 
-        dish.delete()
+        custom_option.delete()
 
 
         payload['message'] = "Successful"

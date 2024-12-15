@@ -11,7 +11,7 @@ from rest_framework.authentication import TokenAuthentication
 
 from activities.models import AllActivity
 from food.api.serializers import AllIngredientSerializer, DishDetailsSerializer, DishIngredientDetailsSerializer
-from food.models import DishIngredient
+from food.models import Dish, DishIngredient
 
 User = get_user_model()
 
@@ -29,6 +29,9 @@ def add_ingredient(request):
         description = request.data.get('description', "")
         dish_id = request.data.get('dish_id', "")
         photo = request.data.get('photo', "")
+        category = request.data.get('category', "")
+        unit = request.data.get('unit', "")
+        price_per_unit = request.data.get('price_per_unit', "")
 
 
         if not name:
@@ -42,6 +45,7 @@ def add_ingredient(request):
 
         if not description:
             errors['description'] = ['Description is required.']
+
 
         # Check if the name is already taken
         if DishIngredient.objects.filter(name=name).exists():
@@ -63,6 +67,9 @@ def add_ingredient(request):
             name=name,
             description=description,
             photo=photo,
+            category=category,
+            unit=unit,
+            price_per_unit=price_per_unit,
         )
 
         data["ingredient_id"] = ingredient.ingredient_id
@@ -165,7 +172,7 @@ def get_ingredient_details_view(request):
 @api_view(['POST', ])
 @permission_classes([IsAuthenticated, ])
 @authentication_classes([TokenAuthentication, ])
-def edit_ingredient(request):
+def edit_ingredient_view(request):
     payload = {}
     data = {}
     errors = {}
@@ -176,6 +183,9 @@ def edit_ingredient(request):
         description = request.data.get('description', "")
         dish_id = request.data.get('dish_id', "")
         photo = request.data.get('photo', "")
+        category = request.data.get('category', "")
+        unit = request.data.get('unit', "")
+        price_per_unit = request.data.get('price_per_unit', "")
 
 
         if not ingredient_id:
@@ -222,6 +232,12 @@ def edit_ingredient(request):
             ingredient.description = description
         if photo:
             ingredient.photo = photo
+        if category:
+            ingredient.category = category
+        if unit:
+            ingredient.unit = unit
+        if price_per_unit:
+            ingredient.price_per_unit = price_per_unit
         ingredient.save()
 
         data["name"] = ingredient.name
@@ -283,7 +299,7 @@ def archive_ingredient(request):
 @api_view(['POST', ])
 @permission_classes([IsAuthenticated, ])
 @authentication_classes([TokenAuthentication, ])
-def unarchive_dish(request):
+def unarchive_ingredient(request):
     payload = {}
     data = {}
     errors = {}

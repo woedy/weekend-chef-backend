@@ -64,7 +64,10 @@ INSTALLED_APPS = [
     'chef',
     'clients',
     'week_admin',
-    'food'
+    'food',
+    'orders',
+    'chats',
+    'dispatch',
 
 ]
 

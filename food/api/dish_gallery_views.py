@@ -11,7 +11,7 @@ from rest_framework.authentication import TokenAuthentication
 
 from activities.models import AllActivity
 from food.api.serializers import AllDishGallerySerializer, DishDetailsSerializer, DishGalleryDetailsSerializer
-from food.models import DishGallery
+from food.models import Dish, DishGallery
 
 User = get_user_model()
 
@@ -226,21 +226,21 @@ def edit_dish_gallery(request):
 @api_view(['POST', ])
 @permission_classes([IsAuthenticated, ])
 @authentication_classes([TokenAuthentication, ])
-def archive_ingredient(request):
+def archive_dish_gallery(request):
     payload = {}
     data = {}
     errors = {}
 
     if request.method == 'POST':
-        ingredient_id = request.data.get('ingredient_id', "")
+        dish_gallery_id = request.data.get('dish_gallery_id', "")
 
-        if not ingredient_id:
-            errors['ingredient_id'] = ['Dish Gallery ID is required.']
+        if not dish_gallery_id:
+            errors['dish_gallery_id'] = ['Dish Gallery ID is required.']
 
         try:
-            dish = DishGallery.objects.get(ingredient_id=ingredient_id)
+            dish = DishGallery.objects.get(dish_gallery_id=dish_gallery_id)
         except:
-            errors['ingredient_id'] = ['Dish Gallery does not exist.']
+            errors['dish_gallery_id'] = ['Dish Gallery does not exist.']
 
 
         if errors:
@@ -262,26 +262,24 @@ def archive_ingredient(request):
 
     return Response(payload)
 
-
-
 @api_view(['POST', ])
 @permission_classes([IsAuthenticated, ])
 @authentication_classes([TokenAuthentication, ])
-def unarchive_dish(request):
+def unarchive_dish_gallery(request):
     payload = {}
     data = {}
     errors = {}
 
     if request.method == 'POST':
-        ingredient_id = request.data.get('ingredient_id', "")
+        dish_gallery_id = request.data.get('dish_gallery_id', "")
 
-        if not ingredient_id:
-            errors['ingredient_id'] = ['DishGallery ID is required.']
+        if not dish_gallery_id:
+            errors['dish_gallery_id'] = ['Dish Gallery ID is required.']
 
         try:
-            ingredient = DishGallery.objects.get(ingredient_id=ingredient_id)
+            dish = DishGallery.objects.get(dish_gallery_id=dish_gallery_id)
         except:
-            errors['ingredient_id'] = ['DishGallery does not exist.']
+            errors['dish_gallery_id'] = ['Dish Gallery does not exist.']
 
 
         if errors:
@@ -289,12 +287,12 @@ def unarchive_dish(request):
             payload['errors'] = errors
             return Response(payload, status=status.HTTP_400_BAD_REQUEST)
 
-        ingredient.is_archived = False
-        ingredient.save()
+        dish.is_archived = False
+        dish.save()
 
         new_activity = AllActivity.objects.create(
-            subject="DishGallery unarchived",
-            body="DishGallery unarchived"
+            subject="Dish Gallery unArchived",
+            body="DishGallery unArchived"
         )
         new_activity.save()
 
@@ -305,10 +303,11 @@ def unarchive_dish(request):
 
 
 
+
 @api_view(['GET', ])
 @permission_classes([IsAuthenticated, ])
 @authentication_classes([TokenAuthentication, ])
-def get_all_unarchived_ingredient_view(request):
+def get_all_archived_dish_gallerys_view(request):
     payload = {}
     data = {}
     errors = {}
@@ -318,39 +317,39 @@ def get_all_unarchived_ingredient_view(request):
     dish = request.query_params.get('dish', '')
     page_size = 10
 
-    all_ingredients = DishGallery.objects.all().filter(is_archived=True)
+    all_dish_gallerys = DishGallery.objects.all().filter(is_archived=True)
 
 
     if search_query:
-        all_ingredients = all_ingredients.filter(
+        all_dish_gallerys = all_dish_gallerys.filter(
             Q(caption__icontains=search_query) 
         
         ).distinct() 
 
         # Filter by service dish if provided
     if dish:
-        all_ingredients = all_ingredients.filter(
+        all_dish_gallerys = all_dish_gallerys.filter(
             dish__caption__icontains=dish
         ).distinct()
 
-    paginator = Paginator(all_ingredients, page_size)
+    paginator = Paginator(all_dish_gallerys, page_size)
 
     try:
-        paginated_ingredients = paginator.page(page_number)
+        paginated_dish_gallerys = paginator.page(page_number)
     except PageNotAnInteger:
-        paginated_ingredients = paginator.page(1)
+        paginated_dish_gallerys = paginator.page(1)
     except EmptyPage:
-        paginated_ingredients = paginator.page(paginator.num_pages)
+        paginated_dish_gallerys = paginator.page(paginator.num_pages)
 
-    all_ingredients_serializer = AllDishGallerySerializer(paginated_ingredients, many=True)
+    all_dish_gallerys_serializer = AllDishGallerySerializer(paginated_dish_gallerys, many=True)
 
 
-    data['ingredients'] = all_ingredients_serializer.data
+    data['dish_gallery'] = all_dish_gallerys_serializer.data
     data['pagination'] = {
-        'page_number': paginated_ingredients.number,
+        'page_number': paginated_dish_gallerys.number,
         'total_pages': paginator.num_pages,
-        'next': paginated_ingredients.next_page_number() if paginated_ingredients.has_next() else None,
-        'previous': paginated_ingredients.previous_page_number() if paginated_ingredients.has_previous() else None,
+        'next': paginated_dish_gallerys.next_page_number() if paginated_dish_gallerys.has_next() else None,
+        'previous': paginated_dish_gallerys.previous_page_number() if paginated_dish_gallerys.has_previous() else None,
     }
 
     payload['message'] = "Successful"
@@ -362,21 +361,21 @@ def get_all_unarchived_ingredient_view(request):
 @api_view(['POST', ])
 @permission_classes([IsAuthenticated, ])
 @authentication_classes([TokenAuthentication, ])
-def delete_ingredient(request):
+def delete_dish_gallery(request):
     payload = {}
     data = {}
     errors = {}
 
     if request.method == 'POST':
-        ingredient_id = request.data.get('ingredient_id', "")
+        dish_gallery_id = request.data.get('dish_gallery_id', "")
 
-        if not ingredient_id:
-            errors['ingredient_id'] = ['DishGallery ID is required.']
+        if not dish_gallery_id:
+            errors['dish_gallery_id'] = ['Dish Gallery ID is required.']
 
         try:
-            ingredient = DishGallery.objects.get(ingredient_id=ingredient_id)
+            ingredient = DishGallery.objects.get(dish_gallery_id=dish_gallery_id)
         except:
-            errors['ingredient_id'] = ['DishGallery does not exist.']
+            errors['dish_gallery_id'] = ['Dish Gallery does not exist.']
 
 
         if errors:

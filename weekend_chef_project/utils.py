@@ -91,6 +91,9 @@ def unique_admin_id_generator(instance):
     if qs_exists:
         return None
     return admin_id
+
+
+
 def unique_dish_id_generator(instance):
     """
     This is for a dish_id field
@@ -105,6 +108,36 @@ def unique_dish_id_generator(instance):
     if qs_exists:
         return None
     return dish_id
+
+def unique_ingredient_id_generator(instance):
+    """
+    This is for a ingredient_id field
+    :param instance:
+    :return:
+    """
+    size = random.randint(5, 10)
+    ingredient_id = "ING-" + random_string_generator(size=size, chars=string.ascii_uppercase + string.digits) + "-NT"
+
+    Klass = instance.__class__
+    qs_exists = Klass.objects.filter(ingredient_id=ingredient_id).exists()
+    if qs_exists:
+        return None
+    return ingredient_id
+
+def unique_dish_gallery_id_generator(instance):
+    """
+    This is for a ingredient_id field
+    :param instance:
+    :return:
+    """
+    size = random.randint(5, 10)
+    dish_gallery_id = "DG-" + random_string_generator(size=size, chars=string.ascii_uppercase + string.digits) + "-D"
+
+    Klass = instance.__class__
+    qs_exists = Klass.objects.filter(dish_gallery_id=dish_gallery_id).exists()
+    if qs_exists:
+        return None
+    return dish_gallery_id
 
 
 def unique_booking_id_generator(instance):

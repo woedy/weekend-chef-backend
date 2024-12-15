@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <script src="https://js.pusher.com/7.0/pusher.min.js"></script>
+
+</head>
+<body>
+
+
+    <script>
+        var pusher = new Pusher('8eb96ce903a8e1cf541f', {
+            cluster: 'mt1'
+        });
+
+        var channel = pusher.subscribe('chat-channel');
+        channel.bind('new-message', function(data) {
+            alert('New message: ' + data.message);
+            // Update your chat interface with the new message
+        });
+    </script>
+
+</body>
+</html>

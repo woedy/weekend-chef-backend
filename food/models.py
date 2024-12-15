@@ -1,7 +1,7 @@
 from django.db import models
 from django.db.models.signals import post_save, pre_save
 
-from weekend_chef_project.utils import unique_dish_id_generator
+from weekend_chef_project.utils import unique_dish_gallery_id_generator, unique_dish_id_generator, unique_ingredient_id_generator
 
 class FoodCategory(models.Model):
     name = models.CharField(max_length=100, unique=True)

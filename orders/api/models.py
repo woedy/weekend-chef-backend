@@ -1,4 +1,4 @@
-from django.utils import timezone
+from datetime import timezone
 from django.db import models
 
 from chats.models import PrivateChatRoom
@@ -38,7 +38,6 @@ class CustomizationOption(models.Model):
     name = models.CharField(max_length=100)  # e.g., "Meat Type", "Spice Level"
     description = models.TextField(null=True, blank=True)  # Optional description
     price = models.DecimalField(max_digits=6, decimal_places=2, default=0)  # Price for this customization option (e.g., "Meat Type")
-    photo = models.ImageField(upload_to='orders/custom_options/', null=True, blank=True)
 
     def __str__(self):
         return self.name
