@@ -1,13 +1,13 @@
 from django.urls import path
 
-from payments.api.views import get_transactions
+from orders.api.custom_options_view import add_custom_option
 
 
 
 app_name = 'orders'
 
 urlpatterns = [
-    path('transactions/', get_transactions, name='get_transactions'),
+    path('add-custom-option/', add_custom_option, name='add_custom_option'),
 
 
 ]

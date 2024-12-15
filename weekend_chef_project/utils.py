@@ -123,6 +123,20 @@ def unique_ingredient_id_generator(instance):
     if qs_exists:
         return None
     return ingredient_id
+def unique_custom_option_id_generator(instance):
+    """
+    This is for a custom_option_id field
+    :param instance:
+    :return:
+    """
+    size = random.randint(5, 10)
+    custom_option_id = "CO-" + random_string_generator(size=size, chars=string.ascii_uppercase + string.digits) + "-O"
+
+    Klass = instance.__class__
+    qs_exists = Klass.objects.filter(custom_option_id=custom_option_id).exists()
+    if qs_exists:
+        return None
+    return custom_option_id
 
 def unique_dish_gallery_id_generator(instance):
     """

@@ -8,6 +8,7 @@ from dispatch.models import DispatchDriver
 from django.db.models.signals import pre_save
 
 from food.models import Dish, DishIngredient
+from weekend_chef_project.utils import unique_custom_option_id_generator
 
 
 # Cart model
@@ -33,7 +34,8 @@ class CustomizationOption(models.Model):
 
         ('Other', 'Other'),
     ]
-    
+    custom_option_id = models.CharField(max_length=255, blank=True, null=True, unique=True)
+
     option_type = models.CharField(max_length=20, choices=OPTION_TYPES)  # Type of customization (Meat, Spice, etc.)
     name = models.CharField(max_length=100)  # e.g., "Meat Type", "Spice Level"
     description = models.TextField(null=True, blank=True)  # Optional description
@@ -44,6 +46,12 @@ class CustomizationOption(models.Model):
         return self.name
 
 
+
+def pre_save_custom_option_id_receiver(sender, instance, *args, **kwargs):
+    if not instance.custom_option_id:
+        instance.custom_option_id = unique_custom_option_id_generator(instance)
+
+pre_save.connect(pre_save_custom_option_id_receiver, sender=CustomizationOption)
 
 
 

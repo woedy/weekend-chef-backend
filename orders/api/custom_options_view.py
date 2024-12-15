@@ -10,8 +10,7 @@ from rest_framework.authentication import TokenAuthentication
 
 
 from activities.models import AllActivity
-from food.api.serializers import AllCustomOptionsSerializer, CustomOptionDetailsSerializer
-from food.models import CustomOption, FoodCategory
+from orders.models import CustomizationOption
 
 User = get_user_model()
 
@@ -48,8 +47,8 @@ def add_custom_option(request):
             errors['description'] = ['Description is required.']
 
      # Check if the name is already taken
-        if CustomOption.objects.filter(name=name).exists():
-            errors['name'] = ['A CustomOption with this name already exists.']
+        if CustomizationOption.objects.filter(name=name).exists():
+            errors['name'] = ['A CustomizationOption with this name already exists.']
 
         if errors:
             payload['message'] = "Errors"
@@ -57,7 +56,7 @@ def add_custom_option(request):
             return Response(payload, status=status.HTTP_400_BAD_REQUEST)
 
 
-        custom_option = CustomOption.objects.create(
+        custom_option = CustomizationOption.objects.create(
             name=name,
             description=description,
             photo=photo,
@@ -88,7 +87,7 @@ def get_all_custom_options_view(request):
     category = request.query_params.get('category', '')
     page_size = 10
 
-    all_custom_options = CustomOption.objects.all().filter(is_archived=False)
+    all_custom_options = CustomizationOption.objects.all().filter(is_archived=False)
 
 
     if search_query:
@@ -112,7 +111,7 @@ def get_all_custom_options_view(request):
     except EmptyPage:
         paginated_custom_options = paginator.page(paginator.num_pages)
 
-    all_custom_options_serializer = AllCustomOptionsSerializer(paginated_custom_options, many=True)
+    all_custom_options_serializer = AllCustomizationOptionsSerializer(paginated_custom_options, many=True)
 
 
     data['custom_optiones'] = all_custom_options_serializer.data
@@ -140,23 +139,23 @@ def get_custom_option_details_view(request):
     custom_option_id = request.query_params.get('custom_option_id', None)
 
     if not custom_option_id:
-        errors['custom_option_id'] = ["CustomOption id required"]
+        errors['custom_option_id'] = ["CustomizationOption id required"]
 
     try:
-        custom_option = CustomOption.objects.get(custom_option_id=custom_option_id)
-    except CustomOption.DoesNotExist:
-        errors['custom_option_id'] = ['CustomOption does not exist.']
+        custom_option = CustomizationOption.objects.get(custom_option_id=custom_option_id)
+    except CustomizationOption.DoesNotExist:
+        errors['custom_option_id'] = ['CustomizationOption does not exist.']
 
     if errors:
         payload['message'] = "Errors"
         payload['errors'] = errors
         return Response(payload, status=status.HTTP_400_BAD_REQUEST)
 
-    custom_option_serializer = CustomOptionDetailsSerializer(custom_option, many=False)
+    custom_option_serializer = CustomizationOptionDetailsSerializer(custom_option, many=False)
     if custom_option_serializer:
         custom_option = custom_option_serializer.data
 
-    custom_option_serializer = CustomOptionDetailsSerializer(custom_option, many=False)
+    custom_option_serializer = CustomizationOptionDetailsSerializer(custom_option, many=False)
 
     payload['message'] = "Successful"
     payload['data'] = custom_option
@@ -182,21 +181,21 @@ def edit_custom_option_view(request):
 
 
         if not custom_option_id:
-            errors['custom_option_id'] = ['CustomOption ID is required.']
+            errors['custom_option_id'] = ['CustomizationOption ID is required.']
         if not custom_option_id:
-            errors['custom_option_id'] = ["CustomOption id required"]
+            errors['custom_option_id'] = ["CustomizationOption id required"]
 
         if not description:
             errors['description'] = ['Description is required.']
 
         # Check if the name is already taken
-        if CustomOption.objects.filter(name=name).exists():
-            errors['name'] = ['A CustomOption with this name already exists.']
+        if CustomizationOption.objects.filter(name=name).exists():
+            errors['name'] = ['A CustomizationOption with this name already exists.']
 
         try:
-            custom_option = CustomOption.objects.get(custom_option_id=custom_option_id)
+            custom_option = CustomizationOption.objects.get(custom_option_id=custom_option_id)
         except:
-            errors['custom_option_id'] = ['CustomOption does not exist.']
+            errors['custom_option_id'] = ['CustomizationOption does not exist.']
 
         try:
             category = FoodCategory.objects.get(id=category_id)
@@ -228,7 +227,7 @@ def edit_custom_option_view(request):
 
 
         new_activity = AllActivity.objects.create(
-            subject="CustomOption Edited",
+            subject="CustomizationOption Edited",
             body=f"{custom_option.name} was edited."
         )
         new_activity.save()
@@ -251,12 +250,12 @@ def archive_custom_option(request):
         custom_option_id = request.data.get('custom_option_id', "")
 
         if not custom_option_id:
-            errors['custom_option_id'] = ['CustomOption ID is required.']
+            errors['custom_option_id'] = ['CustomizationOption ID is required.']
 
         try:
-            custom_option = CustomOption.objects.get(custom_option_id=custom_option_id)
+            custom_option = CustomizationOption.objects.get(custom_option_id=custom_option_id)
         except:
-            errors['custom_option_id'] = ['CustomOption does not exist.']
+            errors['custom_option_id'] = ['CustomizationOption does not exist.']
 
 
         if errors:
@@ -268,8 +267,8 @@ def archive_custom_option(request):
         custom_option.save()
 
         new_activity = AllActivity.objects.create(
-            subject="CustomOption Archived",
-            body="CustomOption Archived"
+            subject="CustomizationOption Archived",
+            body="CustomizationOption Archived"
         )
         new_activity.save()
 
@@ -292,12 +291,12 @@ def unarchive_custom_option(request):
         custom_option_id = request.data.get('custom_option_id', "")
 
         if not custom_option_id:
-            errors['custom_option_id'] = ['CustomOption ID is required.']
+            errors['custom_option_id'] = ['CustomizationOption ID is required.']
 
         try:
-            custom_option = CustomOption.objects.get(custom_option_id=custom_option_id)
+            custom_option = CustomizationOption.objects.get(custom_option_id=custom_option_id)
         except:
-            errors['custom_option_id'] = ['CustomOption does not exist.']
+            errors['custom_option_id'] = ['CustomizationOption does not exist.']
 
 
         if errors:
@@ -309,8 +308,8 @@ def unarchive_custom_option(request):
         custom_option.save()
 
         new_activity = AllActivity.objects.create(
-            subject="CustomOption unarchived",
-            body="CustomOption unarchived"
+            subject="CustomizationOption unarchived",
+            body="CustomizationOption unarchived"
         )
         new_activity.save()
 
@@ -334,7 +333,7 @@ def get_all_archived_custom_options_view(request):
     category = request.query_params.get('category', '')
     page_size = 10
 
-    all_custom_options = CustomOption.objects.all().filter(is_archived=True)
+    all_custom_options = CustomizationOption.objects.all().filter(is_archived=True)
 
 
     if search_query:
@@ -358,7 +357,7 @@ def get_all_archived_custom_options_view(request):
     except EmptyPage:
         paginated_custom_options = paginator.page(paginator.num_pages)
 
-    all_custom_options_serializer = AllCustomOptionsSerializer(paginated_custom_options, many=True)
+    all_custom_options_serializer = AllCustomizationOptionsSerializer(paginated_custom_options, many=True)
 
 
     data['custom_optiones'] = all_custom_options_serializer.data
@@ -388,12 +387,12 @@ def delete_custom_option(request):
         custom_option_id = request.data.get('custom_option_id', "")
 
         if not custom_option_id:
-            errors['custom_option_id'] = ['CustomOption ID is required.']
+            errors['custom_option_id'] = ['CustomizationOption ID is required.']
 
         try:
-            custom_option = CustomOption.objects.get(custom_option_id=custom_option_id)
+            custom_option = CustomizationOption.objects.get(custom_option_id=custom_option_id)
         except:
-            errors['custom_option_id'] = ['CustomOption does not exist.']
+            errors['custom_option_id'] = ['CustomizationOption does not exist.']
 
 
         if errors:
