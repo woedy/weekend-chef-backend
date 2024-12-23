@@ -21,7 +21,7 @@ class Dish(models.Model):
     category = models.ForeignKey(FoodCategory, on_delete=models.CASCADE)
     description = models.TextField()
     cover_photo = models.ImageField(upload_to='dish/covers/', null=True, blank=True)
-    base_price = models.CharField(max_length=255, null=True, blank=True)
+    base_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     quantity = models.IntegerField(default=1)
 
     is_archived = models.BooleanField(default=False)

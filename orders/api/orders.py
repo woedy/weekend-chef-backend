@@ -1,236 +1,125 @@
+from datetime import datetime
 from rest_framework.decorators import api_view, permission_classes, authentication_classes
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.authentication import TokenAuthentication
 from django.core.exceptions import ObjectDoesNotExist
-from .models import Order, OrderItem, Dish, Client, ChefProfile, DispatchDriver, OrderStatus, Cart
 from rest_framework.exceptions import ValidationError
 from django.utils.crypto import get_random_string
+from django.db import transaction
+
+from clients.models import Client
+from orders.models import Cart, Order, OrderItem, OrderStatus
+
 
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 @authentication_classes([TokenAuthentication])
-def place_order(request):
-    """
-    Place a new order for the client, creating order items and order statuses.
-    """
+def place_order_view(request):
     payload = {}
-    data = {}
+    errors = {}
 
-    # Get the client from the authenticated user
-    client = request.user.client  # Assuming the Client model is related to User model
-    client_id = request.data.get('client_id')
-    chef_id = request.data.get('chef_id')
-    dispatch_id = request.data.get('dispatch_id')
+    if request.method == 'POST':
+        # Extract client information from the request
+        client_id = request.data.get('client_id')
+        order_date = request.data.get('order_date')
+        order_time = request.data.get('order_time')
+        delivery_date = request.data.get('delivery_date')
+        delivery_time = request.data.get('delivery_time')
+        location_name = request.data.get('location_name')
+        digital_address = request.data.get('digital_address')
+        lat = request.data.get('lat')
+        lng = request.data.get('lng')
+        delivery_fee = request.data.get('delivery_fee')
+        tax = request.data.get('tax')
 
-    if not client_id or client.id != client_id:
-        payload['message'] = 'Client ID is invalid or does not match the authenticated user.'
-        return Response(payload, status=status.HTTP_400_BAD_REQUEST)
-
-    try:
-        # Fetch chef and dispatch details
-        chef = ChefProfile.objects.get(id=chef_id)
-        dispatch_driver = DispatchDriver.objects.get(id=dispatch_id)
-
-    except ObjectDoesNotExist:
-        payload['message'] = 'Invalid Chef or Dispatch Driver.'
-        return Response(payload, status=status.HTTP_400_BAD_REQUEST)
-
-    # Get order items
-    order_items_data = request.data.get('order_items', [])
-    if not order_items_data:
-        payload['message'] = 'Order items are required.'
-        return Response(payload, status=status.HTTP_400_BAD_REQUEST)
-
-    # Generate a unique order_id (can be enhanced with your logic)
-    order_id = get_random_string(length=8).upper()
-
-    # Initialize total price
-    total_price = 0
-
-    # Create the order
-    order = Order.objects.create(
-        order_id=order_id,
-        client=client,
-        chef=chef,
-        dispatch=dispatch_driver,
-        status='Pending',  # Initially set to Pending
-        total_price=total_price,  # This will be updated after the items are processed
-        paid=False,  # Payment status
-        order_date=request.data.get('order_date'),
-        order_time=request.data.get('order_time'),
-        delivery_date=request.data.get('delivery_date'),
-        delivery_time=request.data.get('delivery_time'),
-        location_name=request.data.get('location_name'),
-        digital_address=request.data.get('digital_address'),
-        lat=request.data.get('lat', 0.0),
-        lng=request.data.get('lng', 0.0),
-        delivery_fee=request.data.get('delivery_fee', 0.0),
-        tax=request.data.get('tax', 0.0),
-    )
-
-    # Create order items (dishes) and link them to the order
-    for item_data in order_items_data:
-        try:
-            cart = Cart.objects.get(id=item_data['cart_id'])  # Assuming Cart ID is given in the request
-        except Cart.DoesNotExist:
-            payload['message'] = f"Cart with ID {item_data['cart_id']} not found."
-            return Response(payload, status=status.HTTP_404_NOT_FOUND)
-
-        # Create OrderItem and link it to the order
-        order_item = OrderItem.objects.create(
-            order=order,
-            cart=cart,
-            quantity=item_data['quantity'],
-        )
-
-        # Handle customizations if present
-        customizations = item_data.get('customizations', [])
-        if customizations:
+        # Validate client_id
+        if not client_id:
+            errors['client_id'] = ['Client ID is required.']
+        else:
             try:
-                customization_values = []
-                for customization in customizations:
-                    customization_id = customization.get('id')
-                    customization_quantity = customization.get('quantity', 1)  # Default to 1 if no quantity is provided
+                client = Client.objects.get(client_id=client_id)
+            except Client.DoesNotExist:
+                errors['client_id'] = ['Client does not exist.']
 
-                    # Fetch the CustomizationValue object
-                    customization_value = CustomizationValue.objects.get(id=customization_id)
-                    
-                    # Check if customization quantity is valid (e.g., must be positive)
-                    if customization_quantity <= 0:
-                        raise ValidationError("Customization quantity must be greater than 0.")
-
-                    # Assign the customization value and quantity
-                    customization_value.quantity = customization_quantity
-                    customization_values.append(customization_value)
-
-                # Link customizations to the order item
-                order_item.customizations.set(customization_values)
-
-            except CustomizationValue.DoesNotExist:
-                order_item.delete()  # Clean up if error occurs
-                return Response({
-                    'message': "Customization Error",
-                    'errors': {'customizations': ['One or more customizations not found.']}
-                }, status=status.HTTP_404_NOT_FOUND)
-            except ValidationError as e:
-                order_item.delete()  # Clean up if validation fails
-                return Response({
-                    'message': "Invalid Customization Quantity",
-                    'errors': {'customizations': [str(e)]}
-                }, status=status.HTTP_400_BAD_REQUEST)
-
-        # Recalculate the total price for this order item, including customizations
-        total_price += order_item.total_price()
-
-    # Update the order's total price
-    order.total_price = total_price
-    order.save()
-
-    # Create initial order status (Pending)
-    OrderStatus.objects.create(
-        order=order,
-        status='Pending',
-    )
-
-    # Mark the cart as archived or inactive
-    cart.is_archived = True  # Or `cart.is_active = False`
-    cart.save()
-
-    # Prepare the response data
-    data = {
-        'order_id': order.order_id,
-        'status': order.status,
-        'total_price': str(order.total_price),
-        'delivery_fee': str(order.delivery_fee),
-        'tax': str(order.tax),
-        'order_date': str(order.order_date),
-        'order_time': str(order.order_time),
-        'delivery_date': str(order.delivery_date),
-        'delivery_time': str(order.delivery_time),
-        'location_name': order.location_name,
-        'digital_address': order.digital_address,
-        'lat': str(order.lat),
-        'lng': str(order.lng),
-        'client': order.client.user.username,
-        'chef': order.chef.user.username,
-        'dispatch_driver': order.dispatch.user.username,
-        'order_items': [
-            {
-                'dish': item.cart.dish.name,
-                'quantity': item.quantity,
-                'total_price': str(item.total_price()),
-                'customizations': [
-                    {
-                        'customization': cv.customization_option.name,
-                        'value': cv.value,
-                        'quantity': cv.quantity
-                    }
-                    for cv in item.customizations.all()
-                ]
-            }
-            for item in order.items.all()
-        ]
-    }
-
-    payload['message'] = 'Order placed successfully.'
-    payload['data'] = data
-    return Response(payload, status=status.HTTP_201_CREATED)
-
-
-@api_view(['PATCH'])
-@permission_classes([IsAuthenticated])
-@authentication_classes([TokenAuthentication])
-def change_order_status(request, order_id):
-    """
-    View to change the status of an order.
-    Allowed statuses: Pending, Shipped, Delivered, Cancelled
-    """
-    payload = {}
-    data = {}
-
-    try:
-        # Retrieve the order based on the order_id (URL parameter)
-        order = Order.objects.get(id=order_id)
-
-        # Check if the authenticated user is authorized to update the order status
-        # Assuming different roles: admin, chef, dispatch driver, etc.
-        user = request.user
-        
-        # Only allow the status change for certain roles
-        # Customize this based on your requirements (admin, chef, dispatch, etc.)
-        if not user.is_staff:  # Example: Only allow staff (admin, chef, etc.)
-            payload['message'] = 'You do not have permission to change the order status.'
-            return Response(payload, status=status.HTTP_403_FORBIDDEN)
-
-        # Get the new status from the request data
-        new_status = request.data.get('status')
-
-        # Validate the new status
-        if new_status not in dict(status_choices).keys():
-            payload['message'] = f"Invalid status: {new_status}. Valid statuses are: {', '.join(dict(status_choices).keys())}"
+        if errors.get('client_id'):
+            payload['message'] = "Errors"
+            payload['errors'] = errors
             return Response(payload, status=status.HTTP_400_BAD_REQUEST)
 
-        # Update the order's status
-        order.status = new_status
-        order.save()
+        # Validate other fields like order_date, delivery_date, location_name, etc.
+        # (same validation as before)
 
-        # Create an OrderStatus entry to track the status change
-        OrderStatus.objects.create(
-            order=order,
-            status=new_status
-        )
+        # Validate if the client has an active cart
+        try:
+            cart = Cart.objects.get(client=client, purchased=False)
+        except Cart.DoesNotExist:
+            errors['cart'] = ['No active cart available for placing an order.']
+
+        if not cart.items.exists():
+            errors['cart'] = ['The cart does not contain any items.']
+
+        if errors:
+            payload['message'] = "Errors"
+            payload['errors'] = errors
+            return Response(payload, status=status.HTTP_400_BAD_REQUEST)
+
+        # Create the order
+        with transaction.atomic():
+            # Create the Order instance
+            order = Order(
+                client=client,
+                total_price=0,  # Will be updated later
+                paid=False,
+                room=None,  # Optional or add from request if needed
+                order_date=order_date,
+                order_time=order_time,
+                delivery_date=delivery_date,
+                delivery_time=delivery_time,
+                location_name=location_name,
+                digital_address=digital_address,
+                lat=lat,
+                lng=lng,
+                delivery_fee=delivery_fee,
+                tax=tax
+            )
+            order.save()
+
+            # Add items from the cart to the order
+            for cart_item in cart.items.all():
+                # Create the OrderItem and associate it with the Order
+                order_item = OrderItem(
+                    order=order,
+                    cart_item=cart_item,  # Link to CartItem (which includes customizations)
+                    quantity=cart_item.quantity
+                )
+                order_item.save()
+
+            # Update the total price for the order (this will calculate based on CartItems)
+            order.update_total_price()
+
+            # Set the order status to 'Pending'
+            OrderStatus.objects.create(order=order, status='Pending')
+
+            # Mark the cart as purchased
+            cart.purchased = True
+            cart.save()
 
         # Prepare the response data
-        data['order_id'] = order.id
-        data['order_status'] = order.status
-        data['message'] = 'Order status updated successfully.'
+        order_data = {
+            'order_id': order.order_id,
+            'total_price': order.total_price,
+            'order_date': order.order_date,
+            'order_time': order.order_time,
+            'status': 'Pending',
+        }
 
-        return Response(data, status=status.HTTP_200_OK)
-
-
+        return Response({
+            'message': 'Order placed successfully.',
+            'data': order_data
+        }, status=status.HTTP_201_CREATED)
 
 
 @api_view(['POST'])
@@ -265,27 +154,26 @@ def create_order_payment(request, order_id):
             payload['message'] = "Payment amount is required."
             return Response(payload, status=status.HTTP_400_BAD_REQUEST)
 
-        try:
-            # Create an order payment record
-            payment = OrderPayment.objects.create(
-                order=order,
-                payment_method=payment_method,
-                amount=amount,
-                active=True  # Payment is active by default
-            )
+        # Create an order payment record
+        payment = OrderPayment.objects.create(
+            order=order,
+            payment_method=payment_method,
+            amount=amount,
+            active=True  # Payment is active by default
+        )
 
-            # Update the order's total payment (if needed)
-            # Here, we can track the total payments made for the order
+        # Update the order's total payment (if needed)
+        # Here, we can track the total payments made for the order
 
-            order.update_total_price()  # Assuming update_total_price method exists for handling payments
+        order.update_total_price()  # Assuming update_total_price method exists for handling payments
 
-            # Return success response with payment details
-            data['order_id'] = order.id
-            data['payment_method'] = payment.payment_method
-            data['amount'] = payment.amount
-            data['message'] = "Payment created successfully."
+        # Return success response with payment details
+        data['order_id'] = order.id
+        data['payment_method'] = payment.payment_method
+        data['amount'] = payment.amount
+        data['message'] = "Payment created successfully."
 
-            return Response(data, status=status.HTTP_201_CREATED)
+        return Response(data, status=status.HTTP_201_CREATED)
 
     except ObjectDoesNotExist:
         payload['message'] = "Order not found."

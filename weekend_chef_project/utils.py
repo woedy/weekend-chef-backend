@@ -39,18 +39,17 @@ def unique_user_id_generator(instance):
 
 def unique_chef_id_generator(instance):
     """
-    This is for a django project with a chef_id field
+    This is for a chef_id field
     :param instance:
-    :return:
+    :return:H
     """
-
-    size = random.randint(30,45)
-    chef_id = random_string_generator(size=size)
+    size = random.randint(5, 10)
+    chef_id = "CH-" + random_string_generator(size=size, chars=string.ascii_uppercase + string.digits) + "-F"
 
     Klass = instance.__class__
     qs_exists = Klass.objects.filter(chef_id=chef_id).exists()
     if qs_exists:
-        return
+        return None
     return chef_id
 
 def generate_email_token():
@@ -123,6 +122,22 @@ def unique_ingredient_id_generator(instance):
     if qs_exists:
         return None
     return ingredient_id
+
+def unique_order_id_generator(instance):
+    """
+    This is for a order_id field
+    :param instance:
+    :return:
+    """
+    size = random.randint(5, 10)
+    order_id = "ORD-" + random_string_generator(size=size, chars=string.ascii_uppercase + string.digits) + "-ER"
+
+    Klass = instance.__class__
+    qs_exists = Klass.objects.filter(order_id=order_id).exists()
+    if qs_exists:
+        return None
+    return order_id
+
 def unique_custom_option_id_generator(instance):
     """
     This is for a custom_option_id field

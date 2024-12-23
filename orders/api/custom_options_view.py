@@ -10,6 +10,7 @@ from rest_framework.authentication import TokenAuthentication
 
 
 from activities.models import AllActivity
+from orders.api.serializers import AllCustomizationOptionSerializer, CustomizationOptionDetailsSerializer
 from orders.models import CustomizationOption
 
 User = get_user_model()
@@ -57,6 +58,7 @@ def add_custom_option(request):
 
 
         custom_option = CustomizationOption.objects.create(
+            option_type=option_type,
             name=name,
             description=description,
             photo=photo,
@@ -111,7 +113,7 @@ def get_all_custom_options_view(request):
     except EmptyPage:
         paginated_custom_options = paginator.page(paginator.num_pages)
 
-    all_custom_options_serializer = AllCustomizationOptionsSerializer(paginated_custom_options, many=True)
+    all_custom_options_serializer = AllCustomizationOptionSerializer(paginated_custom_options, many=True)
 
 
     data['custom_optiones'] = all_custom_options_serializer.data
@@ -155,7 +157,6 @@ def get_custom_option_details_view(request):
     if custom_option_serializer:
         custom_option = custom_option_serializer.data
 
-    custom_option_serializer = CustomizationOptionDetailsSerializer(custom_option, many=False)
 
     payload['message'] = "Successful"
     payload['data'] = custom_option
@@ -172,35 +173,37 @@ def edit_custom_option_view(request):
 
     if request.method == 'POST':
         custom_option_id = request.data.get('custom_option_id', "")
+        option_type = request.data.get('option_type', "")
         name = request.data.get('name', "")
         description = request.data.get('description', "")
-        category_id = request.data.get('category_id', "")
-        cover_photo = request.data.get('cover_photo', "")
-        base_price = request.data.get('base_price', "")
-        quantity = request.data.get('quantity', "")
+        photo = request.data.get('photo', "")
+        price = request.data.get('price', "")
 
 
-        if not custom_option_id:
-            errors['custom_option_id'] = ['CustomizationOption ID is required.']
-        if not custom_option_id:
-            errors['custom_option_id'] = ["CustomizationOption id required"]
+        if not option_type:
+            errors['option_type'] = ['Option type is required.']
+
+
+        if not name:
+            errors['name'] = ['Name is required.']
+
+      
+
+        if not price:
+            errors['price'] = ['Price is required.']
 
         if not description:
             errors['description'] = ['Description is required.']
 
-        # Check if the name is already taken
+     # Check if the name is already taken
         if CustomizationOption.objects.filter(name=name).exists():
             errors['name'] = ['A CustomizationOption with this name already exists.']
+
 
         try:
             custom_option = CustomizationOption.objects.get(custom_option_id=custom_option_id)
         except:
             errors['custom_option_id'] = ['CustomizationOption does not exist.']
-
-        try:
-            category = FoodCategory.objects.get(id=category_id)
-        except:
-            errors['category_id'] = ['Food category does not exist.']
 
         if errors:
             payload['message'] = "Errors"
@@ -210,16 +213,15 @@ def edit_custom_option_view(request):
         # Update fields only if provided and not empty
         if name:
             custom_option.name = name
-        if category:
-            custom_option.category = category
+        if option_type:
+            custom_option.option_type = option_type
         if description:
             custom_option.description = description
-        if cover_photo:
-            custom_option.cover_photo = cover_photo
-        if base_price:
-            custom_option.base_price = base_price
-        if quantity:
-            custom_option.quantity = quantity
+        if photo:
+            custom_option.photo = photo
+        if price:
+            custom_option.price = price
+
 
         custom_option.save()
 
@@ -346,7 +348,7 @@ def get_all_archived_custom_options_view(request):
     if category:
         all_custom_options = all_custom_options.filter(
             category__name__icontains=category
-        )
+        ).distinct()
 
     paginator = Paginator(all_custom_options, page_size)
 
@@ -357,7 +359,7 @@ def get_all_archived_custom_options_view(request):
     except EmptyPage:
         paginated_custom_options = paginator.page(paginator.num_pages)
 
-    all_custom_options_serializer = AllCustomizationOptionsSerializer(paginated_custom_options, many=True)
+    all_custom_options_serializer = AllCustomizationOptionSerializer(paginated_custom_options, many=True)
 
 
     data['custom_optiones'] = all_custom_options_serializer.data
@@ -372,7 +374,6 @@ def get_all_archived_custom_options_view(request):
     payload['data'] = data
 
     return Response(payload, status=status.HTTP_200_OK)
-
 
 
 @api_view(['POST', ])

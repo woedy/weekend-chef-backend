@@ -8,7 +8,7 @@ from dispatch.models import DispatchDriver
 from django.db.models.signals import pre_save
 
 from food.models import Dish, DishIngredient
-from weekend_chef_project.utils import unique_custom_option_id_generator
+from weekend_chef_project.utils import unique_custom_option_id_generator, unique_order_id_generator
 
 
 # Cart model
@@ -19,6 +19,7 @@ class Cart(models.Model):
 
     def __str__(self):
         return f"Cart for {self.client.user.first_name}"
+
 
 
 
@@ -42,6 +43,13 @@ class CustomizationOption(models.Model):
     price = models.DecimalField(max_digits=6, decimal_places=2, default=0)  # Price for this customization option (e.g., "Meat Type")
     photo = models.ImageField(upload_to='orders/custom_options/', null=True, blank=True)
 
+    
+    is_archived = models.BooleanField(default=False)
+    active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    
     def __str__(self):
         return self.name
 
@@ -57,10 +65,11 @@ pre_save.connect(pre_save_custom_option_id_receiver, sender=CustomizationOption)
 
 class CustomizationValue(models.Model):
     customization_option = models.ForeignKey(CustomizationOption, related_name='values', on_delete=models.CASCADE)
-    value = models.CharField(max_length=100)  # e.g., "Chicken", "Fish", "Hot", "Mild"
+    #value = models.CharField(max_length=100)  # e.g., "Chicken", "Fish", "Hot", "Mild"
+    quantity = models.PositiveIntegerField()
 
     def __str__(self):
-        return f"{self.customization_option.name}: {self.value}"
+        return f"{self.customization_option.name}: {self.quantity}"
 
 
 
@@ -69,6 +78,7 @@ class CustomizationValue(models.Model):
 class CartItem(models.Model):
     cart = models.ForeignKey(Cart, related_name='items', on_delete=models.CASCADE)
     dish = models.ForeignKey(Dish, related_name='cart_items', on_delete=models.CASCADE)
+    chef = models.ForeignKey(ChefProfile, related_name='cart_chef', on_delete=models.CASCADE)
     is_custom = models.BooleanField(default=False)
     quantity = models.PositiveIntegerField()
 
@@ -86,11 +96,11 @@ class CartItem(models.Model):
 
     def total_price(self):
         # Start with the base price of the product
-        base_price = self.dish.price
+        base_price = self.dish.base_price
         
         # Add the price of each customization option (meat type, spice level, etc.)
         for customization in self.customizations.all():
-            base_price += customization.customization_option.price  # Add price from the customization option
+            base_price += customization.customization_option.price * customization.quantity
 
         # Multiply by quantity (if more than 1 item)
         return base_price * self.quantity
@@ -104,8 +114,7 @@ class Order(models.Model):
     order_id = models.CharField(max_length=255, blank=True, null=True, unique=True)
 
     client = models.ForeignKey(Client, related_name='client_orders', on_delete=models.CASCADE)
-    chef = models.ForeignKey(ChefProfile, related_name='chef_orders', on_delete=models.CASCADE)
-    dispatch = models.ForeignKey(DispatchDriver, related_name='dispatch_orders', on_delete=models.CASCADE)
+    dispatch = models.ForeignKey(DispatchDriver, related_name='dispatch_orders', on_delete=models.CASCADE, null=True, blank=True)
 
     total_price = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     paid = models.BooleanField(default=False)
@@ -160,18 +169,24 @@ class OrderStatus(models.Model):
 
 
 
-# OrderItem model to hold individual items in an order
 class OrderItem(models.Model):
     order = models.ForeignKey(Order, related_name='items', on_delete=models.CASCADE)
-    cart = models.ForeignKey(Cart, on_delete=models.CASCADE)  # Link the cart to the order
-    quantity = models.PositiveIntegerField()
+    cart_item = models.ForeignKey(CartItem, related_name='order_items', on_delete=models.CASCADE)  # Link to CartItem
+    quantity = models.PositiveIntegerField()  # Quantity of the item in the order
 
     def __str__(self):
-        return f"{self.product.name} (x{self.quantity})"
+        return f"{self.cart_item.dish.name} (x{self.quantity})"
 
     def total_price(self):
-        return self.product.price * self.quantity
-
+        """
+        Calculate the total price for this OrderItem based on the CartItem's dish price and customizations.
+        """
+        base_price = self.cart_item.dish.base_price
+        # Add customizations price from the associated CartItem
+        for customization in self.cart_item.customizations.all():
+            base_price += customization.customization_option.price * customization.quantity
+        # Return the total price considering the quantity
+        return base_price * self.quantity
 
 
 

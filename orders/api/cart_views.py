@@ -2,6 +2,7 @@
 from django.contrib.auth import get_user_model
 from django.core.paginator import Paginator, PageNotAnInteger, EmptyPage
 from django.db.models import Q
+from django.forms import ValidationError
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes, authentication_classes
 from rest_framework.permissions import IsAuthenticated
@@ -10,10 +11,16 @@ from rest_framework.authentication import TokenAuthentication
 
 
 from activities.models import AllActivity
+from chef.models import ChefProfile
+from clients.models import Client
 from food.api.serializers import AllFoodCategorysSerializer
-from food.models import FoodCategory
+from food.models import Dish, FoodCategory
+from orders.models import Cart, CartItem, CustomizationOption, CustomizationValue
 
 User = get_user_model()
+
+
+
 
 
 @api_view(['POST'])
@@ -25,43 +32,60 @@ def add_cart_item(request):
 
     if request.method == 'POST':
         # Extract fields from the request body
-        dish_id = request.data.get('dish')
+        client_id = request.data.get('client_id')
+        chef_id = request.data.get('chef_id')
+        dish_id = request.data.get('dish_id')
         quantity = request.data.get('quantity')
         is_custom = request.data.get('is_custom', False)
         special_notes = request.data.get('special_notes', '')
         customizations = request.data.get('customizations', [])
 
-        # Validate required fields
+        # Perform initial validation
         if not dish_id:
-            errors['dish'] = ['Dish is required.']
+            errors['dish_id'] = ['Dish ID is required.']
+        if not client_id:
+            errors['client_id'] = ['Client ID is required.']
+        if not chef_id:
+            errors['chef_id'] = ['Chef ID is required.']
+
         if not quantity or quantity <= 0:
             errors['quantity'] = ['Quantity must be greater than 0.']
+
+        if not isinstance(is_custom, bool):
+            errors['is_custom'] = ['Is custom must be a boolean value.']
+
         if is_custom and not customizations:
             errors['customizations'] = ['Customizations are required when the item is custom.']
 
-        if errors:
-            return Response({
-                'message': "Validation Errors",
-                'errors': errors
-            }, status=status.HTTP_400_BAD_REQUEST)
-
-        # Fetch the authenticated user's cart (or create it if it doesn't exist)
-        client = request.user.client  # Assuming user has a one-to-one relationship with Client
-        cart, created = Cart.objects.get_or_create(client=client)
+        # Validate the existence of client, chef, and dish
+        try:
+            client = Client.objects.get(client_id=client_id)
+        except Client.DoesNotExist:
+            errors['client_id'] = ['Client does not exist.']
 
         try:
-            # Fetch the Dish object
-            dish = Dish.objects.get(id=dish_id)
+            chef = ChefProfile.objects.get(chef_id=chef_id)
+        except ChefProfile.DoesNotExist:
+            errors['chef_id'] = ['Chef does not exist.']
+
+        try:
+            dish = Dish.objects.get(dish_id=dish_id)
         except Dish.DoesNotExist:
-            return Response({
-                'message': "Dish Not Found",
-                'errors': {'dish': ['Dish not found.']}
-            }, status=status.HTTP_404_NOT_FOUND)
+            errors['dish_id'] = ['Dish does not exist.']
+
+        if errors:
+            payload['message'] = "Validation Errors"
+            payload['errors'] = errors
+            return Response(payload, status=status.HTTP_400_BAD_REQUEST)
+
+        # Create or get the client's cart
+        cart, created = Cart.objects.get_or_create(client=client)
 
         # Create CartItem object
         cart_item = CartItem(
             cart=cart,
             dish=dish,
+            chef=chef,
             quantity=quantity,
             is_custom=is_custom,
             special_notes=special_notes
@@ -75,34 +99,50 @@ def add_cart_item(request):
             try:
                 customization_values = []
                 for customization in customizations:
-                    # Extract the customization ID and quantity
-                    customization_id = customization.get('id')
-                    customization_quantity = customization.get('quantity', 1)  # Default to 1 if no quantity is provided
+                    # Extract customization details
+                    custom_option_id = customization.get('custom_option_id')
+                    custom_quantity = customization.get('quantity', 1)  # Default to 1 if no quantity is provided
 
-                    # Fetch the CustomizationValue object
-                    customization_value = CustomizationValue.objects.get(id=customization_id)
-                    
-                    # Check if customization quantity is valid (e.g., must be positive)
-                    if customization_quantity <= 0:
+                    # Ensure customization quantity is valid
+                    if custom_quantity <= 0:
                         raise ValidationError("Customization quantity must be greater than 0.")
 
-                    # Assign the customization value and quantity
-                    customization_value.quantity = customization_quantity
+                    # Fetch the CustomizationOption object
+                    try:
+                        customization_option = CustomizationOption.objects.get(custom_option_id=custom_option_id)
+                    except CustomizationOption.DoesNotExist:
+                        raise ValidationError(f"Customization option with ID {custom_option_id} does not exist.")
+
+                    # Create a CustomizationValue for this customization option
+                    customization_value = CustomizationValue(
+                        customization_option=customization_option,
+                        quantity=custom_quantity
+                    )
+
+                    # Ensure customization_value is valid before adding
+                    if not customization_value.customization_option or customization_value.quantity <= 0:
+                        raise ValidationError("Invalid customization value.")
+
+                    # Save the customization value before appending to the list
+                    customization_value.save()
                     customization_values.append(customization_value)
 
                 # Assign customizations to the cart item
-                cart_item.customizations.set(customization_values)
-            except CustomizationValue.DoesNotExist:
+                if customization_values:
+                    cart_item.customizations.set(customization_values)
+
+            except CustomizationOption.DoesNotExist:
                 cart_item.delete()  # Clean up if error occurs
                 return Response({
                     'message': "Customization Error",
-                    'errors': {'customizations': ['One or more customizations not found.']}
+                    'errors': {'customizations': ['One or more customizations not found.']},
                 }, status=status.HTTP_404_NOT_FOUND)
+
             except ValidationError as e:
                 cart_item.delete()  # Clean up if validation fails
                 return Response({
                     'message': "Invalid Customization Quantity",
-                    'errors': {'customizations': [str(e)]}
+                    'errors': {'customizations': [str(e)]},
                 }, status=status.HTTP_400_BAD_REQUEST)
 
         # Prepare response data
@@ -112,7 +152,7 @@ def add_cart_item(request):
             "quantity": cart_item.quantity,
             "special_notes": cart_item.special_notes,
             "customizations": [
-                {"customization": cv.customization_option.name, "value": cv.value, "quantity": cv.quantity}
+                {"customization": cv.customization_option.name, "quantity": cv.quantity}
                 for cv in cart_item.customizations.all()
             ],
             "total_price": cart_item.total_price()  # Calculate total price
@@ -123,6 +163,9 @@ def add_cart_item(request):
             'message': "Item added to cart successfully.",
             'data': data
         }, status=status.HTTP_201_CREATED)
+    
+
+
 
 
 
@@ -131,59 +174,84 @@ def add_cart_item(request):
 @authentication_classes([TokenAuthentication])
 def get_all_carts_view(request):
     """
-    View to retrieve all carts, with an optional filter by client.
+    View to retrieve all carts with optional search by client and pagination.
     """
     payload = {}
-    data = []
+    data = {}
+    errors = {}
 
-    # Get the 'client_id' from query parameters (if provided)
-    client_id = request.query_params.get('client', None)
+    # Get search, client_id, and pagination parameters from query parameters
+    search_query = request.query_params.get('search', '')
+    client_id = request.query_params.get('client_id', None)
+    page_number = request.query_params.get('page', 1)
+    page_size = 10  # You can adjust the page size as needed
 
-    # If client_id is provided, filter carts by client
+    # Start with all carts, if no client filter is provided
+    carts = Cart.objects.all()
+
+    # If a client_id is provided, filter carts by client
     if client_id:
         try:
-            client = Client.objects.get(id=client_id)
-            carts = Cart.objects.filter(client=client)
+            client = Client.objects.get(client_id=client_id)
+            carts = carts.filter(client=client)
         except Client.DoesNotExist:
+            errors['client_id'] = ['Client not found.']
             payload['message'] = "Client not found."
+            payload['errors'] = errors
             return Response(payload, status=status.HTTP_404_NOT_FOUND)
-    else:
-        # If no client_id is provided, retrieve all carts
-        carts = Cart.objects.all()
 
-    if not carts:
-        payload['message'] = "No carts found."
-        return Response(payload, status=status.HTTP_404_NOT_FOUND)
+    # Apply search query if provided
+    if search_query:
+        carts = carts.filter(
+            Q(client__user__first_name__icontains=search_query) |  # Assuming searching by client's first name
+            Q(client__user__last_name__icontains=search_query)   # Searching by client's last name
+        ).distinct()
 
-    # Loop through each cart and get cart items
-    for cart in carts:
-        # Fetch all CartItems for the current cart
+    # Pagination
+    paginator = Paginator(carts, page_size)
+
+    try:
+        paginated_carts = paginator.page(page_number)
+    except PageNotAnInteger:
+        paginated_carts = paginator.page(1)
+    except EmptyPage:
+        paginated_carts = paginator.page(paginator.num_pages)
+
+    # Prepare data for response
+    cart_data = []
+    for cart in paginated_carts:
         cart_items = CartItem.objects.filter(cart=cart)
 
-        cart_data = {
-            'cart_id': cart.id,
-            'created_at': cart.created_at,
-            'cart_items': []
-        }
-
+        cart_item_data = []
         for item in cart_items:
-            # For each CartItem, fetch relevant details
-            cart_item_data = {
+            cart_item_data.append({
                 'id': item.id,
-                'dish': item.dish.name,  # Assuming 'dish' has a 'name' field
+                'dish': item.dish.name,
                 'quantity': item.quantity,
                 'special_notes': item.special_notes,
-                'customizations': [cv.value for cv in item.customizations.all()],
+                'customizations': [cv.quantity for cv in item.customizations.all()],
                 'total_price': item.total_price()
-            }
-            cart_data['cart_items'].append(cart_item_data)
+            })
 
-        # Add this cart data to the response data
-        data.append(cart_data)
+        cart_data.append({
+            'cart_id': cart.id,
+            'created_at': cart.created_at,
+            'cart_items': cart_item_data
+        })
+
+    # Constructing pagination info
+    data['carts'] = cart_data
+    data['pagination'] = {
+        'page_number': paginated_carts.number,
+        'total_pages': paginator.num_pages,
+        'next': paginated_carts.next_page_number() if paginated_carts.has_next() else None,
+        'previous': paginated_carts.previous_page_number() if paginated_carts.has_previous() else None,
+    }
 
     payload['message'] = "Success"
     payload['data'] = data
     return Response(payload, status=status.HTTP_200_OK)
+
 
 
 
@@ -263,47 +331,42 @@ def get_cart_detail_view(request, cart_id):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 @authentication_classes([TokenAuthentication])
-def cart_item_detail_view(request, cart_id, item_id):
+def cart_item_detail_view(request):
     """
-    View to get the details of a specific cart item.
+    View to retrieve the details of a specific cart item by its ID.
     """
     payload = {}
+    
+    item_id = request.query_params.get('item_id', None)
 
     try:
-        # Retrieve the cart based on the cart_id (URL parameter)
-        cart = Cart.objects.get(id=cart_id)
-
-        # Ensure the cart belongs to the authenticated user
-        if cart.client.user != request.user:
-            payload['message'] = "You do not have permission to view this cart."
-            return Response(payload, status=status.HTTP_403_FORBIDDEN)
-
-        # Retrieve the specific cart item based on the item_id
-        cart_item = CartItem.objects.get(id=item_id, cart=cart)
-
-        # Prepare the data to return
+        # Retrieve the CartItem by its ID
+        cart_item = CartItem.objects.get(id=item_id)
+        
+        # Prepare the data to return in the response
         cart_item_data = {
-            "id": cart_item.id,
-            "dish": cart_item.dish.name,  # The name of the dish in the cart item
-            "quantity": cart_item.quantity,  # The quantity of this cart item
-            "special_notes": cart_item.special_notes,  # Special notes for the cart item
-            "customizations": [cv.value for cv in cart_item.customizations.all()],  # List of applied customizations
-            "total_price": str(cart_item.total_price())  # The total price for this cart item
+            'id': cart_item.id,
+            'dish': cart_item.dish.name,  # Assuming dish has a 'name' field
+            'quantity': cart_item.quantity,
+            'special_notes': cart_item.special_notes,
+            'customizations': [
+                {
+                    'customization_option': cv.customization_option.name,
+                    'quantity': cv.quantity,
+                }
+                for cv in cart_item.customizations.all()
+            ],
+            'total_price': cart_item.total_price()  # Assuming total_price method exists in CartItem
         }
 
-        payload['message'] = "Cart item details retrieved successfully."
+        payload['message'] = "Cart Item retrieved successfully."
         payload['data'] = cart_item_data
         return Response(payload, status=status.HTTP_200_OK)
-
-    except Cart.DoesNotExist:
-        payload['message'] = "Cart not found."
-        return Response(payload, status=status.HTTP_404_NOT_FOUND)
+    
     except CartItem.DoesNotExist:
-        payload['message'] = "Cart item not found."
+        # Handle the case where the CartItem is not found
+        payload['message'] = "CartItem not found."
         return Response(payload, status=status.HTTP_404_NOT_FOUND)
-
-
-
 @api_view(['PUT'])
 @permission_classes([IsAuthenticated])
 @authentication_classes([TokenAuthentication])
@@ -450,89 +513,114 @@ def edit_cart_view(request, cart_id):
 
 
 
-@api_view(['PUT'])
+@api_view(['POST'])
 @permission_classes([IsAuthenticated])
 @authentication_classes([TokenAuthentication])
-def edit_cart_item_view(request, cart_id, item_id):
-    """
-    View to edit an existing cart item, allowing users to update:
-    - Quantity
-    - Special notes
-    - Customizations for the cart item
-    """
+def edit_cart_item_view(request):
     payload = {}
+    errors = {}
 
-    try:
-        # Retrieve the cart based on the cart_id (URL parameter)
-        cart = Cart.objects.get(id=cart_id)
-
-        # Ensure the cart belongs to the authenticated user
-        if cart.client.user != request.user:
-            payload['message'] = "You do not have permission to edit this cart."
-            return Response(payload, status=status.HTTP_403_FORBIDDEN)
-
-        # Retrieve the specific cart item based on the item_id
-        cart_item = CartItem.objects.get(id=item_id, cart=cart)
-
-        # Validate and update the cart item fields
-        quantity = request.data.get('quantity', None)
-        special_notes = request.data.get('special_notes', None)
+    if request.method == 'POST':
+        # Extract fields from the request body
+        cart_item_id = request.data.get('cart_item_id')
+        quantity = request.data.get('quantity')
+        special_notes = request.data.get('special_notes', '')
         customizations = request.data.get('customizations', [])
 
-        # If quantity is provided, validate and update it
-        if quantity is not None:
-            if not isinstance(quantity, int) or quantity <= 0:
-                payload['message'] = "Quantity must be a positive integer."
-                return Response(payload, status=status.HTTP_400_BAD_REQUEST)
-            cart_item.quantity = quantity
+        # Perform initial validation
+        if not cart_item_id:
+            errors['cart_item_id'] = ['Cart Item ID is required.']
+        
+        if quantity is None or quantity <= 0:
+            errors['quantity'] = ['Quantity must be greater than 0.']
 
-        # If special_notes is provided, update it
-        if special_notes is not None:
-            cart_item.special_notes = special_notes
+        if errors:
+            payload['message'] = "Validation Errors"
+            payload['errors'] = errors
+            return Response(payload, status=status.HTTP_400_BAD_REQUEST)
 
-        # If customizations are provided, validate and update them
+        # Locate the cart item by ID
+        try:
+            cart_item = CartItem.objects.get(id=cart_item_id)
+        except CartItem.DoesNotExist:
+            return Response({
+                'message': "Cart Item Not Found",
+                'errors': {'cart_item_id': ['Cart item with the provided ID does not exist.']}
+            }, status=status.HTTP_404_NOT_FOUND)
+
+        # Update cart item fields
+        cart_item.quantity = quantity
+        cart_item.special_notes = special_notes
+
+        # Handle customizations if provided
         if customizations:
-            valid_customizations = []
-            for customization_id in customizations:
-                try:
-                    customization = CustomizationValue.objects.get(id=customization_id)
-                    valid_customizations.append(customization)
-                except CustomizationValue.DoesNotExist:
-                    raise ValidationError(f"Invalid customization ID: {customization_id}")
-            cart_item.customizations.set(valid_customizations)
+            try:
+                # Remove existing customizations first
+                cart_item.customizations.clear()
+
+                customization_values = []
+                for customization in customizations:
+                    # Extract customization details
+                    custom_option_id = customization.get('custom_option_id')
+                    custom_quantity = customization.get('quantity', 1)
+
+                    # Validate customization quantity
+                    if custom_quantity <= 0:
+                        raise ValidationError("Customization quantity must be greater than 0.")
+
+                    try:
+                        customization_option = CustomizationOption.objects.get(custom_option_id=custom_option_id)
+                    except CustomizationOption.DoesNotExist:
+                        raise ValidationError(f"Customization option with ID {custom_option_id} does not exist.")
+
+                    # Create and save CustomizationValue
+                    customization_value = CustomizationValue(
+                        customization_option=customization_option,
+                        quantity=custom_quantity
+                    )
+                    customization_value.save()
+                    customization_values.append(customization_value)
+
+                # Assign new customizations
+                if customization_values:
+                    cart_item.customizations.set(customization_values)
+
+            except CustomizationOption.DoesNotExist:
+                return Response({
+                    'message': "Customization Error",
+                    'errors': {'customizations': ['One or more customizations not found.']},
+                }, status=status.HTTP_404_NOT_FOUND)
+
+            except ValidationError as e:
+                return Response({
+                    'message': "Invalid Customization Quantity",
+                    'errors': {'customizations': [str(e)]},
+                }, status=status.HTTP_400_BAD_REQUEST)
 
         # Save the updated cart item
         cart_item.save()
 
-        # Prepare the response data
-        updated_cart_item_data = {
+        # Prepare the updated response data
+        data = {
             "id": cart_item.id,
             "dish": cart_item.dish.name,
             "quantity": cart_item.quantity,
             "special_notes": cart_item.special_notes,
-            "customizations": [cv.value for cv in cart_item.customizations.all()],
-            "total_price": str(cart_item.total_price())
+            "customizations": [
+                {"customization": cv.customization_option.name, "quantity": cv.quantity}
+                for cv in cart_item.customizations.all()
+            ],
+            "total_price": cart_item.total_price()  # Recalculate total price
         }
 
-        payload['message'] = "Cart item updated successfully."
-        payload['data'] = updated_cart_item_data
-        return Response(payload, status=status.HTTP_200_OK)
-
-    except Cart.DoesNotExist:
-        payload['message'] = "Cart not found."
-        return Response(payload, status=status.HTTP_404_NOT_FOUND)
-
-    except CartItem.DoesNotExist:
-        payload['message'] = "Cart item not found."
-        return Response(payload, status=status.HTTP_404_NOT_FOUND)
-
-    except ValidationError as e:
-        payload['message'] = str(e)
-        return Response(payload, status=status.HTTP_400_BAD_REQUEST)
+        # Return success response
+        return Response({
+            'message': "Cart item updated successfully.",
+            'data': data
+        }, status=status.HTTP_200_OK)
 
 
-
-@api_view(['DELETE'])
+@api_view(['POST'])
 @permission_classes([IsAuthenticated])
 @authentication_classes([TokenAuthentication])
 def delete_cart_view(request, cart_id):

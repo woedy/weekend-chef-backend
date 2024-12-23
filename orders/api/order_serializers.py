@@ -1,5 +1,9 @@
 from rest_framework import serializers
-from .models import Order, OrderItem, OrderPayment, Client, ChefProfile, DispatchDriver
+
+from chef.models import ChefProfile
+from clients.models import Client
+from dispatch.models import DispatchDriver
+from orders.models import Order, OrderItem, OrderPayment, OrderStatus
 
 # Order Item Serializer
 class OrderItemSerializer(serializers.ModelSerializer):
