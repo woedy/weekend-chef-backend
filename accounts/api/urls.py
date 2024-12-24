@@ -3,6 +3,7 @@ from django.urls import path
 from accounts.api.admin_view import AdminLogin, register_weekend_chef_admin
 from accounts.api.chef_views import ChefLogin, register_chef
 from accounts.api.client_views import register_client, verify_client_email, resend_client_email_verification, ClientLogin
+from accounts.api.dispatch_views import register_dispatch
 from accounts.api.password_views import PasswordResetView, confirm_otp_password_view, new_password_reset_view, resend_password_otp
 
 app_name = 'accounts'
@@ -20,10 +21,15 @@ urlpatterns = [
     #path('login-chef/', ChefLogin.as_view(), name="login_chef"),
     #path('resend-chef-email-verification/', resend_chef_email_verification, name="resend_chef_email_verification"),
 
+
     path('register-chef/', register_chef, name="register_chef"),
     path('login-chef/', ChefLogin.as_view(), name="login_chef"),
 
     path('login-admin/', AdminLogin.as_view(), name="login_admin"),
+
+
+        path('register-dispatch/', register_dispatch, name="register_dispatch"),
+
 
 
 

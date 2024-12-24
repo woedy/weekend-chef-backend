@@ -76,6 +76,25 @@ def unique_client_id_generator(instance):
         return None
     return client_id
 
+
+def unique_dispatch_id_generator(instance):
+    """
+    This is for a dispatch_id field
+    :param instance:
+    :return:
+    """
+    size = random.randint(5, 10)
+    dispatch_id = "DIS-" + random_string_generator(size=size, chars=string.ascii_uppercase + string.digits) + "-CT"
+
+    Klass = instance.__class__
+    qs_exists = Klass.objects.filter(dispatch_id=dispatch_id).exists()
+    if qs_exists:
+        return None
+    return dispatch_id
+
+
+
+
 def unique_admin_id_generator(instance):
     """
     This is for a admin_id field

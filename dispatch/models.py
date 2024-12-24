@@ -5,6 +5,8 @@ from django.contrib.auth import get_user_model
 from django.db import models
 from django.db.models.signals import post_save, pre_save
 
+from weekend_chef_project.utils import unique_dispatch_id_generator
+
 
 User = get_user_model()
 

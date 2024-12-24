@@ -32,13 +32,13 @@ services:
       - db
 
   # React Application
-  weekend_chef_frontend:
-    build:
-      context: ../weekend_chef_frontend  # Adjust the path to your React app
-    ports:
-      - "7000:7000"  # Map to the host's port
-    environment:
-      - REACT_APP_API_URL=http://weekend_chef_app:6060  # API URL for Django service
+  # weekend_chef_frontend:
+  #   build:
+  #     context: ../weekend_chef_frontend  # Adjust the path to your React app
+  #   ports:
+  #     - "7000:7000"  # Map to the host's port
+  #   environment:
+  #     - REACT_APP_API_URL=http://weekend_chef_app:6060  # API URL for Django service
 
   # Celery Worker
   celery:
