@@ -11,7 +11,7 @@ from rest_framework.authentication import TokenAuthentication
 
 from activities.models import AllActivity
 from food.api.serializers import AllDishsSerializer, DishDetailsSerializer
-from food.models import Dish, FoodCategory
+from food.models import CustomizationOption, Dish, FoodCategory, FoodCustomization, FoodPairing
 
 User = get_user_model()
 
@@ -421,4 +421,122 @@ def delete_dish(request):
     return Response(payload)
 
 
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+@authentication_classes([TokenAuthentication])
+def add_related_food(request):
+    payload = {}
+    data = {}
+    errors = {}
 
+    if request.method == 'POST':
+        dish_id = request.data.get('dish_id', "")
+        related_food = request.data.get('related_food', [])
+
+        if not dish_id:
+            errors['dish_id'] = ['Dish ID is required.']
+
+        if not related_food:
+            errors['related_food'] = ["Related food id required"]
+
+        try:
+            dish = Dish.objects.get(dish_id=dish_id)
+        except:
+            errors['dish_id'] = ['Dish does not exist.']
+
+        if errors:
+            payload['message'] = "Errors"
+            payload['errors'] = errors
+            return Response(payload, status=status.HTTP_400_BAD_REQUEST)
+
+        for food_id in related_food:
+            try:
+                related_dish = Dish.objects.get(dish_id=food_id)
+            except:
+                errors['related_food'] = ['Related food does not exist.']
+                payload['message'] = "Errors"
+                payload['errors'] = errors
+                return Response(payload, status=status.HTTP_400_BAD_REQUEST)
+
+            # Check if the pairing already exists
+            if FoodPairing.objects.filter(food_item=dish, related_food=related_dish).exists():
+                errors['related_food'] = [f"{dish.name} is already paired with {related_dish.name}."]
+                payload['message'] = "Errors"
+                payload['errors'] = errors
+                return Response(payload, status=status.HTTP_400_BAD_REQUEST)
+
+            # Create new food pairing
+            new_food_pair = FoodPairing.objects.create(
+                food_item=dish,
+                related_food=related_dish
+            )
+
+        # Create activity log
+        new_activity = AllActivity.objects.create(
+            subject="Food Relation added",
+            body=f"{dish.name} relation was added."
+        )
+        new_activity.save()
+
+        payload['message'] = "Successful"
+        payload['data'] = data
+
+    return Response(payload)
+
+
+
+@api_view(['POST', ])
+@permission_classes([IsAuthenticated, ])
+@authentication_classes([TokenAuthentication, ])
+def add_dish_custom_option(request):
+    payload = {}
+    data = {}
+    errors = {}
+
+    if request.method == 'POST':
+        dish_id = request.data.get('dish_id', "")
+        custom_option_id = request.data.get('custom_option_id', [])
+     
+
+
+        if not dish_id:
+            errors['dish_id'] = ['Dish ID is required.']
+
+        if not custom_option_id:
+            errors['custom_option_id'] = ["Custom option id required"]
+
+
+
+        try:
+            dish = Dish.objects.get(dish_id=dish_id)
+        except:
+            errors['dish_id'] = ['Dish does not exist.']
+
+
+        try:
+            custom_option = CustomizationOption.objects.get(custom_option_id=custom_option_id)
+        except:
+            errors['custom_option_id'] = ['Custom option does not exist.']
+
+
+
+        if errors:
+            payload['message'] = "Errors"
+            payload['errors'] = errors
+            return Response(payload, status=status.HTTP_400_BAD_REQUEST)
+        
+        new_custom = FoodCustomization.objects.create(
+            food_item=dish,
+            custom_option=custom_option
+        )
+
+        new_activity = AllActivity.objects.create(
+            subject="Food Customization aded",
+            body=f"{dish.name} customization was added."
+        )
+        new_activity.save()
+
+        payload['message'] = "Successful"
+        payload['data'] = data
+
+    return Response(payload)

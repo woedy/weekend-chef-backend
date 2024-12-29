@@ -1,7 +1,7 @@
 from django.urls import path
 
 from food.api.dish_gallery_views import add_dish_gallery, archive_dish_gallery, delete_dish_gallery, get_all_archived_dish_gallerys_view, get_all_dish_gallerys_view, unarchive_dish_gallery
-from food.api.dish_views import add_dish, archive_dish, delete_dish, edit_dish_view, get_all_archived_dishs_view, get_all_dishs_view, get_dish_details_view, unarchive_dish
+from food.api.dish_views import add_dish, add_dish_custom_option, add_related_food, archive_dish, delete_dish, edit_dish_view, get_all_archived_dishs_view, get_all_dishs_view, get_dish_details_view, unarchive_dish
 from food.api.food_category_views import add_food_category, archive_food_category, delete_food_category, edit_food_category, get_all_archived_food_categorys_view, get_all_food_categorys_view, unarchive_food_category
 from food.api.ingredients_views import add_ingredient, archive_ingredient, delete_ingredient, edit_ingredient_view, get_all_ingredients_view, get_all_unarchived_ingredient_view, get_ingredient_details_view, unarchive_ingredient
 
@@ -26,6 +26,9 @@ urlpatterns = [
     path('unarchive-dish/', unarchive_dish, name="unarchive_dish"),
     path('get-all-archived-dish/', get_all_archived_dishs_view, name="get_all_archived_dish_view"),
     path('delete-dish/', delete_dish, name="delete_dish"),
+
+    path('add-related-food/', add_related_food, name="add_related_food"),
+    path('add-dish-custom-option/', add_dish_custom_option, name="add_dish_custom_option"),
 
 
 

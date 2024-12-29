@@ -10,8 +10,8 @@ from rest_framework.authentication import TokenAuthentication
 
 
 from activities.models import AllActivity
+from food.models import CustomizationOption
 from orders.api.serializers import AllCustomizationOptionSerializer, CustomizationOptionDetailsSerializer
-from orders.models import CustomizationOption
 
 User = get_user_model()
 

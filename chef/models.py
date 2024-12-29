@@ -68,16 +68,24 @@ class ChefProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     chef_id = models.CharField(max_length=200, null=True, blank=True)
 
-    chef_type = models.CharField(max_length=100, choices=CHEF_TYPES)
-    certifications = models.ManyToManyField('Certification')
+    chef_type = models.CharField(max_length=100, choices=CHEF_TYPES, null=True, blank=True)
+    certifications = models.ManyToManyField('Certification', blank=True)
     
     # Location & Availability
-    kitchen_address = models.TextField()
+    kitchen_address = models.TextField(null=True, blank=True)
+
+    kitchen_location = models.CharField(max_length=5000, null=True, blank=True)
+    lat = models.DecimalField(default=0.0, max_digits=30, decimal_places=15, null=True, blank=True)
+    lng = models.DecimalField(default=0.0, max_digits=30, decimal_places=15, null=True, blank=True)
+
+
+
+
     service_radius = models.IntegerField(default=10)  # km
-    availability = models.CharField(max_length=100, choices=CHEF_AVAILABILITY)
+    availability = models.CharField(max_length=100, choices=CHEF_AVAILABILITY, null=True, blank=True)
     
     # Professional Details
-    cuisine_specialties = models.ManyToManyField('CuisineSpecialty')
+    cuisine_specialties = models.ManyToManyField('CuisineSpecialty', blank=True)
     years_of_experience = models.IntegerField(null=True, blank=True)
     
     max_order_capacity = models.IntegerField(default=10)

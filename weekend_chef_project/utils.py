@@ -178,7 +178,7 @@ def unique_dish_gallery_id_generator(instance):
     :param instance:
     :return:
     """
-    size = random.randint(5, 10)
+    size = random.randint(5, 15)
     dish_gallery_id = "DG-" + random_string_generator(size=size, chars=string.ascii_uppercase + string.digits) + "-D"
 
     Klass = instance.__class__

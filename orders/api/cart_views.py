@@ -32,7 +32,7 @@ def add_cart_item(request):
 
     if request.method == 'POST':
         # Extract fields from the request body
-        client_id = request.data.get('client_id')
+        user_id = request.data.get('user_id')
         chef_id = request.data.get('chef_id')
         dish_id = request.data.get('dish_id')
         quantity = request.data.get('quantity')
@@ -43,8 +43,8 @@ def add_cart_item(request):
         # Perform initial validation
         if not dish_id:
             errors['dish_id'] = ['Dish ID is required.']
-        if not client_id:
-            errors['client_id'] = ['Client ID is required.']
+        if not user_id:
+            errors['user_id'] = ['User ID is required.']
         if not chef_id:
             errors['chef_id'] = ['Chef ID is required.']
 
@@ -59,9 +59,9 @@ def add_cart_item(request):
 
         # Validate the existence of client, chef, and dish
         try:
-            client = Client.objects.get(client_id=client_id)
+            client = Client.objects.get(user__user_id=user_id)
         except Client.DoesNotExist:
-            errors['client_id'] = ['Client does not exist.']
+            errors['user_id'] = ['Client does not exist.']
 
         try:
             chef = ChefProfile.objects.get(chef_id=chef_id)
@@ -162,7 +162,7 @@ def add_cart_item(request):
         return Response({
             'message': "Item added to cart successfully.",
             'data': data
-        }, status=status.HTTP_201_CREATED)
+        }, status=status.HTTP_200_OK)
     
 
 

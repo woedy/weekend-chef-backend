@@ -25,9 +25,9 @@ services:
       - .:/weekend_chef_django
       - ./static_cdn:/var/lib/static_cdn
     ports:
-      - 6060:6060
+      - 7575:7575
     container_name: weekend_chef_app
-    command: python manage.py runserver 0.0.0.0:6060
+    command: python manage.py runserver 0.0.0.0:7575
     depends_on:
       - db
 
@@ -38,7 +38,7 @@ services:
   #   ports:
   #     - "7000:7000"  # Map to the host's port
   #   environment:
-  #     - REACT_APP_API_URL=http://weekend_chef_app:6060  # API URL for Django service
+  #     - REACT_APP_API_URL=http://weekend_chef_app:7000  # API URL for Django service
 
   # Celery Worker
   celery:

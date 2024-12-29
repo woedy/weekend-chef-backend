@@ -98,7 +98,7 @@ def get_all_food_categorys_view(request):
     all_food_categorys_serializer = AllFoodCategorysSerializer(paginated_food_categorys, many=True)
 
 
-    data['food_categorys'] = all_food_categorys_serializer.data
+    data['food_categories'] = all_food_categorys_serializer.data
     data['pagination'] = {
         'page_number': paginated_food_categorys.number,
         'total_pages': paginator.num_pages,

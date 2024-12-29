@@ -14,7 +14,7 @@ from activities.models import AllActivity
 from clients.api.serializers import AllClientsSerializer, ClientDetailsSerializer, AllClientComplaintsSerializer, \
     ClientComplaintDetailSerializer
 
-from clients.models import Client, ClientComplaint
+from clients.models import Client
 
 User = get_user_model()
 

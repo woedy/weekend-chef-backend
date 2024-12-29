@@ -67,10 +67,6 @@ def register_weekend_chef_admin(request):
         if not phone:
             errors['phone'] = ['Phone number is required.']
 
-        if not country:
-            errors['country'] = ['Country is required.']
-
-
         if not password:
             errors['password'] = ['Password is required.']
 
@@ -95,8 +91,11 @@ def register_weekend_chef_admin(request):
             data["email"] = user.email
             data["first_name"] = user.first_name
             data["last_name"] = user.last_name
-            data["country"] = user.country
             data["photo"] = user.photo
+
+            if country:
+                data["country"] = user.country
+
 
             user.user_type = "Admin"
             user.save()

@@ -7,8 +7,8 @@ from clients.models import Client
 from dispatch.models import DispatchDriver
 from django.db.models.signals import pre_save
 
-from food.models import Dish, DishIngredient
-from weekend_chef_project.utils import unique_custom_option_id_generator, unique_order_id_generator
+from food.models import CustomizationOption, Dish, DishIngredient
+from weekend_chef_project.utils import unique_order_id_generator
 
 
 # Cart model
@@ -25,41 +25,6 @@ class Cart(models.Model):
 
 
 
-
-
-class CustomizationOption(models.Model):
-    OPTION_TYPES = [
-        ('Meat', 'Meat'),
-        ('Spice', 'Spice'),
-        ('Dough Type', 'Dough Type'),
-
-        ('Other', 'Other'),
-    ]
-    custom_option_id = models.CharField(max_length=255, blank=True, null=True, unique=True)
-
-    option_type = models.CharField(max_length=20, choices=OPTION_TYPES)  # Type of customization (Meat, Spice, etc.)
-    name = models.CharField(max_length=100)  # e.g., "Meat Type", "Spice Level"
-    description = models.TextField(null=True, blank=True)  # Optional description
-    price = models.DecimalField(max_digits=6, decimal_places=2, default=0)  # Price for this customization option (e.g., "Meat Type")
-    photo = models.ImageField(upload_to='orders/custom_options/', null=True, blank=True)
-
-    
-    is_archived = models.BooleanField(default=False)
-    active = models.BooleanField(default=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    
-    def __str__(self):
-        return self.name
-
-
-
-def pre_save_custom_option_id_receiver(sender, instance, *args, **kwargs):
-    if not instance.custom_option_id:
-        instance.custom_option_id = unique_custom_option_id_generator(instance)
-
-pre_save.connect(pre_save_custom_option_id_receiver, sender=CustomizationOption)
 
 
 

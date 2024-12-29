@@ -286,6 +286,186 @@ class ChefLogin(APIView):
         return Response(payload, status=status.HTTP_200_OK)
 
 
+
+@api_view(['POST', ])
+@permission_classes([])
+@authentication_classes([])
+def verify_chef_email(request):
+    payload = {}
+    data = {}
+    errors = {}
+
+    email_errors = []
+    token_errors = []
+
+    email = request.data.get('email', '').lower()
+    email_token = request.data.get('email_token', '')
+
+    if not email:
+        email_errors.append('Email is required.')
+
+    qs = User.objects.filter(email=email)
+    if not qs.exists():
+        email_errors.append('Email does not exist.')
+
+    if email_errors:
+        errors['email'] = email_errors
+
+    if not email_token:
+        token_errors.append('Token is required.')
+
+    user = None
+    if qs.exists():
+        user = qs.first()
+        if email_token != user.email_token:
+            token_errors.append('Invalid Token.')
+
+    if token_errors:
+        errors['email_token'] = token_errors
+
+    if email_errors or token_errors:
+        payload['message'] = "Errors"
+        payload['errors'] = errors
+        return Response(payload, status=status.HTTP_400_BAD_REQUEST)
+
+
+
+    try:
+        token = Token.objects.get(user=user)
+    except Token.DoesNotExist:
+        token = Token.objects.create(user=user)
+
+    user.is_active = True
+    user.email_verified = True
+    user.save()
+
+    data["user_id"] = user.user_id
+    data["email"] = user.email
+    data["first_name"] = user.first_name
+    data["last_name"] = user.last_name
+    data["photo"] = user.photo.url
+    data["token"] = token.key
+
+    payload['message'] = "Successful"
+    payload['data'] = data
+
+    new_activity = AllActivity.objects.create(
+        user=user,
+        subject="Verify Email",
+        body=user.email + " just verified their email",
+    )
+    new_activity.save()
+
+    return Response(payload, status=status.HTTP_200_OK)
+
+
+
+@api_view(['POST', ])
+@permission_classes([AllowAny])
+@authentication_classes([])
+def resend_chef_email_verification(request):
+    payload = {}
+    data = {}
+    errors = {}
+    email_errors = []
+
+
+    email = request.data.get('email', '').lower()
+
+    if not email:
+        email_errors.append('Email is required.')
+    if email_errors:
+        errors['email'] = email_errors
+        payload['message'] = "Error"
+        payload['errors'] = errors
+        return Response(payload, status=status.HTTP_404_NOT_FOUND)
+
+    qs = User.objects.filter(email=email)
+    if not qs.exists():
+        email_errors.append('Email does not exist.')
+        if email_errors:
+            errors['email'] = email_errors
+            payload['message'] = "Error"
+            payload['errors'] = errors
+            return Response(payload, status=status.HTTP_404_NOT_FOUND)
+
+    user = User.objects.filter(email=email).first()
+    otp_code = generate_email_token()
+    user.email_token = otp_code
+    user.save()
+
+
+
+     ##### SEND SMS
+
+    # _msg = f'Your Weekend Chef OTP code is {otp_code}'
+    # url = f"https://apps.mnotify.net/smsapi"
+    # api_key = settings.MNOTIFY_KEY  # Replace with your actual API key
+    # print(api_key)
+    # response = requests.post(url,
+    # data={
+    #     "key": api_key,
+    #     "to": user.phone,
+    #     "msg": _msg,
+    #     "sender_id": settings.MNOTIFY_SENDER_ID,
+    #     })
+    # if response.status_code == 200:
+    #     print('##########################')
+    #     print(response.content)
+    #     payload['message'] = "Successful"
+    # else:
+    #     errors['user_id'] = ['Failed to send SMS']
+    #     ######################
+
+
+    context = {
+        'email_token': otp_code,
+        'email': user.email,
+        'first_name': user.first_name,
+        'last_name': user.last_name
+    }
+#
+    txt_ = get_template("registration/emails/verify.txt").render(context)
+    html_ = get_template("registration/emails/verify.html").render(context)
+#
+    subject = 'OTP CODE'
+    from_email = settings.DEFAULT_FROM_EMAIL
+    recipient_list = [user.email]
+
+     # Use Celery chain to execute tasks in sequence
+    # email_chain = chain(
+    #      send_generic_email.si(subject, txt_, from_email, recipient_list, html_),
+    #   )
+    #  # Execute the Celery chain asynchronously
+    # email_chain.apply_async()
+
+    send_mail(
+        subject,
+        txt_,
+        from_email,
+        recipient_list,
+        html_message=html_,
+        fail_silently=False,
+    )
+
+    #data["otp_code"] = otp_code
+    data["email"] = user.email
+    data["user_id"] = user.user_id
+
+    new_activity = AllActivity.objects.create(
+        user=user,
+        subject="Email verification sent",
+        body="Email verification sent to " + user.email,
+    )
+    new_activity.save()
+
+    payload['message'] = "Successful"
+    payload['data'] = data
+
+    return Response(payload, status=status.HTTP_200_OK)
+
+
+
 def check_password(email, password):
 
     try:

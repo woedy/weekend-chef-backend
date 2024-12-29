@@ -68,6 +68,9 @@ INSTALLED_APPS = [
     'orders',
     'chats',
     'dispatch',
+    'homepage',
+    'notifications',
+    'complaints',
 
 ]
 

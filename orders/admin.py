@@ -1,10 +1,9 @@
 from django.contrib import admin
 
-from orders.models import CartItem, CustomizationOption, Cart, Order, OrderItem, OrderPayment, OrderRating, OrderStatus, ShoppingList
+from orders.models import CartItem, Cart, Order, OrderItem, OrderPayment, OrderRating, OrderStatus, ShoppingList
 from orders.models import CustomizationValue
 
 admin.site.register(Cart)
-admin.site.register(CustomizationOption)
 admin.site.register(CustomizationValue)
 admin.site.register(CartItem)
 
