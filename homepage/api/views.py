@@ -11,6 +11,7 @@ from rest_framework.response import Response
 from food.api.serializers import AllFoodCategorysSerializer
 from food.models import FoodCategory
 from homepage.api.serializers import HomeFoodCategorysSerializer
+from orders.models import Cart
 
 
 @api_view(['GET', ])
@@ -48,6 +49,8 @@ def get_homepage_data_view(request):
 
     notifications = user.notifications.all().filter(read=False)
     notification_count = notifications.count()
+
+    cart_item_count = Cart.objects.get(client__user=user).items.all().count()
     
     user_data['user_id'] = user.user_id
     user_data['first_name'] = user.first_name
@@ -60,6 +63,7 @@ def get_homepage_data_view(request):
     data['user_data'] = user_data
     data['notification_count'] = notification_count
     data['dish_categories'] = dish_categories
+    data['cart_item_count'] = cart_item_count
 
     payload['message'] = "Successful"
     payload['data'] = data

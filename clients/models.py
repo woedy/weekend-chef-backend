@@ -37,15 +37,20 @@ class Client(models.Model):
     
     
     address = models.TextField(null=True, blank=True)
-    city = models.CharField(max_length=100)
-    postal_code = models.CharField(max_length=20)
+    city = models.CharField(max_length=100, null=True, blank=True)
+    postal_code = models.CharField(max_length=20, null=True, blank=True)
+
+    client_home_location = models.CharField(max_length=5000, null=True, blank=True)
+    lat = models.DecimalField(default=0.0, max_digits=30, decimal_places=15, null=True, blank=True)
+    lng = models.DecimalField(default=0.0, max_digits=30, decimal_places=15, null=True, blank=True)
+
 
     passport_id_number = models.CharField(null=True, blank=True, max_length=500)
 
     # Preferences
-    client_type = models.CharField(max_length=100, choices=CLIENT_TYPES)
-    dietary_preferences = models.ManyToManyField('DietaryPreference')
-    allergies = models.ManyToManyField('Allergy')
+    client_type = models.CharField(max_length=100, choices=CLIENT_TYPES, null=True, blank=True)
+    dietary_preferences = models.ManyToManyField('DietaryPreference', blank=True)
+    allergies = models.ManyToManyField('Allergy', blank=True)
 
     is_archived = models.BooleanField(default=False)
     active = models.BooleanField(default=False)

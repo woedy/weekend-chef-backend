@@ -46,9 +46,10 @@ class CartItem(models.Model):
     chef = models.ForeignKey(ChefProfile, related_name='cart_chef', on_delete=models.CASCADE)
     is_custom = models.BooleanField(default=False)
     quantity = models.PositiveIntegerField()
+    new_value = models.CharField(max_length=200)
 
     customizations = models.ManyToManyField(CustomizationValue, related_name='cart_items', blank=True)
-    special_notes = models.TextField(max_length=100)
+    special_notes = models.TextField(max_length=100, null=True, blank=True)
 
     is_archived = models.BooleanField(default=False)
     active = models.BooleanField(default=True)

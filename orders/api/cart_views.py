@@ -182,7 +182,7 @@ def get_all_carts_view(request):
 
     # Get search, client_id, and pagination parameters from query parameters
     search_query = request.query_params.get('search', '')
-    client_id = request.query_params.get('client_id', None)
+    user_id = request.query_params.get('user_id', None)
     page_number = request.query_params.get('page', 1)
     page_size = 10  # You can adjust the page size as needed
 
@@ -190,9 +190,9 @@ def get_all_carts_view(request):
     carts = Cart.objects.all()
 
     # If a client_id is provided, filter carts by client
-    if client_id:
+    if user_id:
         try:
-            client = Client.objects.get(client_id=client_id)
+            client = Client.objects.get(user__user_id=user_id)
             carts = carts.filter(client=client)
         except Client.DoesNotExist:
             errors['client_id'] = ['Client not found.']
@@ -226,10 +226,15 @@ def get_all_carts_view(request):
         for item in cart_items:
             cart_item_data.append({
                 'id': item.id,
-                'dish': item.dish.name,
+                'dish_name': item.dish.name,
+                'dish_cover_photo': item.dish.cover_photo.url,
                 'quantity': item.quantity,
-                'special_notes': item.special_notes,
-                'customizations': [cv.quantity for cv in item.customizations.all()],
+                'value': item.new_value,
+
+                'chef_name': item.chef.user.first_name + ' ' + item.chef.user.last_name,
+                'chef_location': item.chef.kitchen_location,
+                'chef_photo': item.chef.user.photo.url,
+    
                 'total_price': item.total_price()
             })
 
@@ -359,7 +364,7 @@ def cart_item_detail_view(request):
             'total_price': cart_item.total_price()  # Assuming total_price method exists in CartItem
         }
 
-        payload['message'] = "Cart Item retrieved successfully."
+        payload['message'] = "Successful"
         payload['data'] = cart_item_data
         return Response(payload, status=status.HTTP_200_OK)
     
