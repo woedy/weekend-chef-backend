@@ -101,14 +101,20 @@ class ChefProfileSerializer(serializers.ModelSerializer):
 
 
 class FoodItemSerializer(serializers.ModelSerializer):
+    category_name = serializers.SerializerMethodField()
 
     class Meta:
         model = Dish
         fields = ['dish_id', 
                   'name', 
                   'cover_photo',
-                  'description'
+                  'description',
+                  'base_price',
+                  'category_name',
                   ]
+        
+    def get_category_name(self, obj):
+        return obj.category.name if obj.category else None
 
 
 
@@ -119,7 +125,9 @@ class CustomizationOptionSerializer(serializers.ModelSerializer):
         fields = ['custom_option_id', 
                   'name', 
                   'photo',
-                    'price'
+                    'price',
+                    'quantity',
+                    'unit'
                   ]
 
 

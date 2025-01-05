@@ -27,12 +27,23 @@ class AllDishsSerializer(serializers.ModelSerializer):
         return obj.category.name if obj.category else None
 
 
+        
+class DishDetailIngredientSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DishIngredient
+        fields = ['ingredient_id', 'name', 'quantity', 'unit', 'price', 'photo']
+
+
 
 class DishDetailsSerializer(serializers.ModelSerializer):
+    category_name = serializers.SerializerMethodField()
 
     class Meta:
         model = Dish
-        fields = "__all__"
+        fields = [ 'dish_id', 'name', 'category_name', 'description', 'cover_photo', 'base_price', 'value', 'customizable', 'quantity']
+
+    def get_category_name(self, obj):
+        return obj.category.name if obj.category else None
 
 
 

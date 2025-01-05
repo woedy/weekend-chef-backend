@@ -11,8 +11,10 @@ from rest_framework.authentication import TokenAuthentication
 
 
 from activities.models import AllActivity
-from food.api.serializers import AllDishsSerializer, DishDetailsSerializer
-from food.models import CustomizationOption, Dish, FoodCategory, FoodCustomization, FoodPairing
+from chef.models import ChefProfile
+from clients.api.serializers import ChefProfileSerializer, FoodCustomizationSerializer, FoodItemSerializer
+from food.api.serializers import AllDishsSerializer, DishDetailIngredientSerializer, DishDetailsSerializer
+from food.models import CustomizationOption, Dish, DishIngredient, FoodCategory, FoodCustomization, FoodPairing
 
 User = get_user_model()
 
@@ -180,7 +182,7 @@ def get_dish_details_view(request):
         errors['dish_id'] = ["Dish id required"]
 
     try:
-        dish = Dish.objects.get(dish_id=dish_id)
+        _dish = Dish.objects.get(dish_id=dish_id)
     except Dish.DoesNotExist:
         errors['dish_id'] = ['Dish does not exist.']
 
@@ -189,14 +191,59 @@ def get_dish_details_view(request):
         payload['errors'] = errors
         return Response(payload, status=status.HTTP_400_BAD_REQUEST)
 
-    dish_serializer = DishDetailsSerializer(dish, many=False)
+    dish_serializer = DishDetailsSerializer(_dish, many=False)
     if dish_serializer:
         dish = dish_serializer.data
 
-    dish_serializer = DishDetailsSerializer(dish, many=False)
+    data['dish_details'] = dish
+
+
+      # Get ingredients for the dish
+    ingredients = DishIngredient.objects.filter(dish=_dish)
+    ingredient_serializer = DishDetailIngredientSerializer(ingredients, many=True)
+    ingredients = ingredient_serializer.data if ingredient_serializer else []
+
+    data['ingredients'] = ingredients
+
+
+    # Get custom options for the dish (exclude food_item from response)
+    custom_options = FoodCustomization.objects.filter(food_item=_dish)
+    custom_serializer = FoodCustomizationSerializer(custom_options, many=True)
+
+    # Modify the custom serializer data to remove custom_option wrapper
+    custom = []
+    for option in custom_serializer.data:
+        custom_option = option.get('custom_option', {})
+        # Remove the wrapper and add the fields directly
+        custom.append({
+            'custom_option_id': custom_option.get('custom_option_id'),
+            'name': custom_option.get('name'),
+            'photo': custom_option.get('photo'),
+            'price': custom_option.get('price')
+        })
+
+    data['custom_options'] = custom
+
+
+    # Get only related foods (excluding the original dish)
+    related_foods = FoodPairing.objects.filter(food_item=_dish).exclude(related_food=_dish).select_related('related_food')
+    
+    # Serialize only the related food items
+    related_foods = [pair.related_food for pair in related_foods]  # Extract only the related foods
+    related_foods_serializer = FoodItemSerializer(related_foods, many=True)
+    related_foods = related_foods_serializer.data if related_foods_serializer else []
+
+    data['related_foods'] = related_foods
+
+    # Get closest chefs (if needed)
+    chefs = ChefProfile.objects.all()
+    chef_serializer = ChefProfileSerializer(chefs, many=True)
+    dish_chefs = chef_serializer.data if chef_serializer else []
+
+    data['chefs'] = dish_chefs
 
     payload['message'] = "Successful"
-    payload['data'] = dish
+    payload['data'] = data
 
     return Response(payload, status=status.HTTP_200_OK)
 

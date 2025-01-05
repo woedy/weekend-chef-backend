@@ -65,7 +65,8 @@ class CustomizationOption(models.Model):
     price = models.DecimalField(max_digits=6, decimal_places=2, default=0)  # Price for this customization option (e.g., "Meat Type")
     photo = models.ImageField(upload_to='orders/custom_options/', null=True, blank=True)
 
-    
+    quantity = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    unit = models.CharField(max_length=50, null=True, blank=True)  # Unit of measurement (kg, g, L, mL, cups, etc.)
     is_archived = models.BooleanField(default=False)
     active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -98,10 +99,10 @@ class DishIngredient(models.Model):
     dish = models.ForeignKey(Dish, on_delete=models.CASCADE, related_name='ingredients')
     description = models.TextField()
     photo = models.ImageField(upload_to='dish/ingredient/', null=True, blank=True)
-
+    quantity = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     category = models.CharField(max_length=50, choices=[('Solid', 'Solid'), ('Liquid', 'Liquid')], default='Solid')
     unit = models.CharField(max_length=50)  # Unit of measurement (kg, g, L, mL, cups, etc.)
-    price_per_unit = models.DecimalField(max_digits=10, decimal_places=2, default=0)  # Optional field for price tracking
+    price = models.DecimalField(max_digits=10, decimal_places=2, default=0)  # Optional field for price tracking
 
     is_archived = models.BooleanField(default=False)
 
