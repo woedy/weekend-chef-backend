@@ -34,6 +34,7 @@ def add_dish(request):
         cover_photo = request.data.get('cover_photo', "")
         base_price = request.data.get('base_price', "")
         quantity = request.data.get('quantity', "")
+        value = request.data.get('value', "")
 
 
         if not name:
@@ -49,6 +50,8 @@ def add_dish(request):
             errors['base_price'] = ['Base Price is required.']
         if not quantity:
             errors['quantity'] = ['Quantity is required.']
+        if not value:
+            errors['value'] = ['Value is required.']
 
         if not description:
             errors['description'] = ['Description is required.']
@@ -75,6 +78,7 @@ def add_dish(request):
             cover_photo=cover_photo,
             base_price=base_price,
             quantity=quantity,
+            value=value
 
         )
 
