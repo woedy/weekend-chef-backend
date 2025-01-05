@@ -1,4 +1,5 @@
 
+import json
 from django.contrib.auth import get_user_model
 from django.core.paginator import Paginator, PageNotAnInteger, EmptyPage
 from django.db.models import Q
@@ -86,34 +87,57 @@ def add_dish(request):
 
     return Response(payload)
 
-@api_view(['GET', ])
-@permission_classes([IsAuthenticated, ])
-@authentication_classes([TokenAuthentication, ])
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+@authentication_classes([TokenAuthentication])
 def get_all_dishs_view(request):
     payload = {}
     data = {}
     errors = {}
 
+    # Get query parameters
     search_query = request.query_params.get('search', '')
     page_number = request.query_params.get('page', 1)
-    category = request.query_params.get('category', '')
+    categories = request.query_params.get('categories', '')  # categories is expected as a JSON string
+    price_value = request.query_params.get('price', '')  # Assuming price filter exists
     page_size = 10
 
-    all_dishs = Dish.objects.all().filter(is_archived=False)
+    # Start with all dishes, excluding archived ones
+    all_dishs = Dish.objects.filter(is_archived=False)
 
+    # Print out the categories to inspect
+    print('############################')
+    print(categories)
 
+    # If 'categories' is provided in the query, parse it and filter by category IDs
+    if categories:
+        try:
+            # Parse the categories JSON string into a Python dictionary
+            category_dict = json.loads(categories)
+
+            # Filter dishes that belong to any of the selected categories
+            selected_category_ids = [int(cat_id) for cat_id, is_checked in category_dict.items() if is_checked]
+            if selected_category_ids:
+                all_dishs = all_dishs.filter(category__id__in=selected_category_ids).distinct()
+        except json.JSONDecodeError:
+            errors['categories'] = "Invalid categories format."
+            return Response({"error": errors}, status=status.HTTP_400_BAD_REQUEST)
+
+    # If a search query is provided, filter by dish name
     if search_query:
-        all_dishs = all_dishs.filter(
-            Q(name__icontains=search_query) 
-        
-        ).distinct() 
+        all_dishs = all_dishs.filter(Q(name__icontains=search_query)).distinct()
 
-        # Filter by service category if provided
-    if category:
-        all_dishs = all_dishs.filter(
-            category__name__icontains=category
-        ).distinct()
+    # If a price filter is provided (assuming price is a range or specific value)
+    #if price_value:
+    #    try:
+    #        price_value = float(price_value)
+    #        all_dishs = all_dishs.filter(base_price__lte=price_value)
+    #    except ValueError:
+    #        errors['price'] = "Invalid price format."
+    #        return Response({"error": errors}, status=status.HTTP_400_BAD_REQUEST)
 
+    # Paginate the result
     paginator = Paginator(all_dishs, page_size)
 
     try:
@@ -123,9 +147,10 @@ def get_all_dishs_view(request):
     except EmptyPage:
         paginated_dishs = paginator.page(paginator.num_pages)
 
+    # Serialize the paginated dishes
     all_dishs_serializer = AllDishsSerializer(paginated_dishs, many=True)
 
-
+    # Prepare the response data
     data['dishes'] = all_dishs_serializer.data
     data['pagination'] = {
         'page_number': paginated_dishs.number,
@@ -138,6 +163,7 @@ def get_all_dishs_view(request):
     payload['data'] = data
 
     return Response(payload, status=status.HTTP_200_OK)
+
 
 
 @api_view(['GET', ])

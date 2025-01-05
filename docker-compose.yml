@@ -31,14 +31,23 @@ services:
     depends_on:
       - db
 
-  # React Application
-  # weekend_chef_frontend:
-  #   build:
-  #     context: ../weekend_chef_frontend  # Adjust the path to your React app
-  #   ports:
-  #     - "7000:7000"  # Map to the host's port
-  #   environment:
-  #     - REACT_APP_API_URL=http://weekend_chef_app:7000  # API URL for Django service
+  # React Applications
+  weekend_chef_site:
+    build:
+      context: ../weekend_chef_site  # Adjust the path to your React app
+    ports:
+      - "7000:7000"  # Map to the host's port
+    environment:
+      - REACT_APP_API_URL=http://weekend_chef_app:7575  # API URL for Django service
+  
+  
+  weekend_chef_admin:
+    build:
+      context: ../weekend_chef_admin  # Adjust the path to your React app
+    ports:
+      - "7001:7001"  # Map to the host's port
+    environment:
+      - REACT_APP_API_URL=http://weekend_chef_app:7575  # API URL for Django service
 
   # Celery Worker
   celery:

@@ -11,7 +11,7 @@ from rest_framework.response import Response
 from food.api.serializers import AllFoodCategorysSerializer
 from food.models import FoodCategory
 from homepage.api.serializers import HomeFoodCategorysSerializer
-from orders.models import Cart
+from orders.models import Cart, Order
 
 
 @api_view(['GET', ])
@@ -50,15 +50,14 @@ def get_homepage_data_view(request):
     notifications = user.notifications.all().filter(read=False)
     notification_count = notifications.count()
 
-    cart_item_count = Cart.objects.get(client__user=user).items.all().count()
+    # Safely handle cart
+    cart = Cart.objects.filter(client__user=user).first()
+    cart_item_count = cart.items.all().count() if cart else 0
     
     user_data['user_id'] = user.user_id
     user_data['first_name'] = user.first_name
     user_data['last_name'] = user.last_name
     user_data['photo'] = user.photo.url
-
-
-
 
     data['user_data'] = user_data
     data['notification_count'] = notification_count
@@ -70,3 +69,53 @@ def get_homepage_data_view(request):
 
     return Response(payload, status=status.HTTP_200_OK)
 
+
+
+
+
+
+@api_view(['GET', ])
+@permission_classes([IsAuthenticated, ])
+@authentication_classes([TokenAuthentication, ])
+def get_admin_dashboard_data_view(request):
+    payload = {}
+    data = {}
+    errors = {}
+
+    user_data = {}
+    notification_count = 0
+
+    total_sales = 0
+    total_customers = 0
+    total_chefs = 0
+
+    pending_orders = 0  
+    accepted_orders = 0
+    preparation_orders = 0
+    delivery_orders = 0
+
+
+        
+    if errors:
+        payload['message'] = "Errors"
+        payload['errors'] = errors
+        return Response(payload, status=status.HTTP_400_BAD_REQUEST)
+    
+    orders = Order.objects.all()
+    order_count = orders.count()
+    print(order_count)
+    data['orders_count'] = order_count
+
+    data['total_sales'] = total_sales
+    data['total_customers'] = total_customers
+    data['total_chefs'] = total_chefs
+
+    data['pending_orders'] = pending_orders
+    data['accepted_orders'] = accepted_orders
+    data['preparation_orders'] = preparation_orders
+    data['delivery_orders'] = delivery_orders
+
+    payload['message'] = "Successful"
+    payload['data'] = data
+
+    return Response(payload, status=status.HTTP_200_OK)
