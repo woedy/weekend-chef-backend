@@ -1,4 +1,5 @@
 
+from decimal import Decimal
 from django.contrib.auth import get_user_model
 from django.core.paginator import Paginator, PageNotAnInteger, EmptyPage
 from django.db.models import Q
@@ -30,6 +31,9 @@ def add_custom_option(request):
         description = request.data.get('description', "")
         photo = request.data.get('photo', "")
         price = request.data.get('price', "")
+        value = request.data.get('value', "")
+        quantity = request.data.get('quantity', "")
+        unit = request.data.get('unit', "")
 
 
         if not option_type:
@@ -47,6 +51,15 @@ def add_custom_option(request):
         if not description:
             errors['description'] = ['Description is required.']
 
+        if not value:
+            errors['value'] = ['Value is required.']
+
+        if not quantity:
+            errors['quantity'] = ['Quantity is required.']
+
+        if not unit:
+            errors['unit'] = ['Unit is required.']
+
      # Check if the name is already taken
         if CustomizationOption.objects.filter(name=name).exists():
             errors['name'] = ['A CustomizationOption with this name already exists.']
@@ -63,6 +76,9 @@ def add_custom_option(request):
             description=description,
             photo=photo,
             price=price,
+            value=value,
+            quantity=quantity,
+            unit=unit,
         )
 
         data["custom_option_id"] = custom_option.custom_option_id
@@ -116,7 +132,7 @@ def get_all_custom_options_view(request):
     all_custom_options_serializer = AllCustomizationOptionSerializer(paginated_custom_options, many=True)
 
 
-    data['custom_optiones'] = all_custom_options_serializer.data
+    data['custom_options'] = all_custom_options_serializer.data
     data['pagination'] = {
         'page_number': paginated_custom_options.number,
         'total_pages': paginator.num_pages,
@@ -163,6 +179,8 @@ def get_custom_option_details_view(request):
 
     return Response(payload, status=status.HTTP_200_OK)
 
+
+
 @api_view(['POST', ])
 @permission_classes([IsAuthenticated, ])
 @authentication_classes([TokenAuthentication, ])
@@ -178,40 +196,40 @@ def edit_custom_option_view(request):
         description = request.data.get('description', "")
         photo = request.data.get('photo', "")
         price = request.data.get('price', "")
+        quantity = request.data.get('quantity', "")
+        value = request.data.get('value', "")
+        unit = request.data.get('unit', "")
 
-
+        # Validate required fields
         if not option_type:
             errors['option_type'] = ['Option type is required.']
-
-
         if not name:
             errors['name'] = ['Name is required.']
-
-      
-
         if not price:
             errors['price'] = ['Price is required.']
-
         if not description:
             errors['description'] = ['Description is required.']
+        if not quantity:
+            errors['quantity'] = ['Quantity is required.']
+        if not value:
+            errors['value'] = ['Value is required.']
+        if not unit:
+            errors['unit'] = ['Unit is required.']
 
-     # Check if the name is already taken
-        if CustomizationOption.objects.filter(name=name).exists():
-            errors['name'] = ['A CustomizationOption with this name already exists.']
-
-
+        # Try to get the custom option
         try:
             custom_option = CustomizationOption.objects.get(custom_option_id=custom_option_id)
-        except:
+        except CustomizationOption.DoesNotExist:
             errors['custom_option_id'] = ['CustomizationOption does not exist.']
 
+        # If there are errors, return them
         if errors:
             payload['message'] = "Errors"
             payload['errors'] = errors
             return Response(payload, status=status.HTTP_400_BAD_REQUEST)
 
         # Update fields only if provided and not empty
-        if name:
+        if name and name != custom_option.name:
             custom_option.name = name
         if option_type:
             custom_option.option_type = option_type
@@ -219,15 +237,33 @@ def edit_custom_option_view(request):
             custom_option.description = description
         if photo:
             custom_option.photo = photo
+
+        # Handle the price field with validation
         if price:
-            custom_option.price = price
+            try:
+                custom_option.price = Decimal(price)  # Convert to Decimal
+            except:
+                errors['price'] = ['Price must be a valid decimal number.']
 
+        if quantity:
+            custom_option.quantity = quantity
+        if value:
+            custom_option.value = value
+        if unit:
+            custom_option.unit = unit
 
+        # If there are validation errors after trying to update, return them
+        if errors:
+            payload['message'] = "Errors"
+            payload['errors'] = errors
+            return Response(payload, status=status.HTTP_400_BAD_REQUEST)
+
+        # Save the updated custom option
         custom_option.save()
 
         data["name"] = custom_option.name
 
-
+        # Create an activity record
         new_activity = AllActivity.objects.create(
             subject="CustomizationOption Edited",
             body=f"{custom_option.name} was edited."
@@ -238,7 +274,6 @@ def edit_custom_option_view(request):
         payload['data'] = data
 
     return Response(payload)
-
 
 @api_view(['POST', ])
 @permission_classes([IsAuthenticated, ])
@@ -362,7 +397,7 @@ def get_all_archived_custom_options_view(request):
     all_custom_options_serializer = AllCustomizationOptionSerializer(paginated_custom_options, many=True)
 
 
-    data['custom_optiones'] = all_custom_options_serializer.data
+    data['custom_options'] = all_custom_options_serializer.data
     data['pagination'] = {
         'page_number': paginated_custom_options.number,
         'total_pages': paginator.num_pages,

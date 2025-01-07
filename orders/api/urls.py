@@ -10,12 +10,12 @@ app_name = 'orders'
 
 urlpatterns = [
     path('add-custom-option/', add_custom_option, name='add_custom_option'),
-    path('get-all-custom-option/', get_all_custom_options_view, name='get_all_custom_options_view'),
+    path('get-all-custom-options/', get_all_custom_options_view, name='get_all_custom_options_view'),
     path('edit-custom-option/', edit_custom_option_view, name="edit_custom_option_view"),
     path('get-custom-option-details/', get_custom_option_details_view, name="get_custom_option_detail_view"),
     path('archive-custom-option/', archive_custom_option, name="archive_custom_option"),
     path('unarchive-custom-option/', unarchive_custom_option, name="unarchive_custom_option"),
-    path('get-all-archived-custom-option/', get_all_archived_custom_options_view, name="get_all_archived_custom_option_view"),
+    path('get-all-archived-custom-options/', get_all_archived_custom_options_view, name="get_all_archived_custom_option_view"),
     path('delete-custom-option/', delete_custom_option, name="delete_custom_option"),
 
 

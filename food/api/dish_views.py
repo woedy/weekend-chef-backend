@@ -278,8 +278,8 @@ def edit_dish_view(request):
             errors['description'] = ['Description is required.']
 
         # Check if the name is already taken
-        if Dish.objects.filter(name=name).exists():
-            errors['name'] = ['A Dish with this name already exists.']
+        #if Dish.objects.filter(name=name).exists():
+         #   errors['name'] = ['A Dish with this name already exists.']
 
         try:
             dish = Dish.objects.get(dish_id=dish_id)
@@ -298,7 +298,8 @@ def edit_dish_view(request):
 
         # Update fields only if provided and not empty
         if name:
-            dish.name = name
+            if name != dish.name:
+                dish.name = name
         if category:
             dish.category = category
         if description:

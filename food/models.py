@@ -65,8 +65,10 @@ class CustomizationOption(models.Model):
     price = models.DecimalField(max_digits=6, decimal_places=2, default=0)  # Price for this customization option (e.g., "Meat Type")
     photo = models.ImageField(upload_to='orders/custom_options/', null=True, blank=True)
 
-    quantity = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    quantity = models.IntegerField(default=1)
     unit = models.CharField(max_length=50, null=True, blank=True)  # Unit of measurement (kg, g, L, mL, cups, etc.)
+    value = models.CharField(max_length=50, null=True, blank=True)  # Unit of measurement (kg, g, L, mL, cups, etc.)
+
     is_archived = models.BooleanField(default=False)
     active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
