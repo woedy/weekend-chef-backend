@@ -31,7 +31,7 @@ def add_ingredient(request):
         photo = request.data.get('photo', "")
         category = request.data.get('category', "")
         unit = request.data.get('unit', "")
-        price_per_unit = request.data.get('price_per_unit', "")
+        price = request.data.get('price', "")
 
 
         if not name:
@@ -42,6 +42,18 @@ def add_ingredient(request):
 
         if not photo:
             errors['photo'] = ['Photo is required.']
+
+        if not category:
+            errors['category'] = ['Category is required.']
+
+        if not unit:
+            errors['unit'] = ['Unit is required.']
+
+        if not price:
+            errors['price'] = ['Price is required.']
+
+        if not category:
+            errors['category'] = ['Category is required.']
 
         if not description:
             errors['description'] = ['Description is required.']
@@ -69,7 +81,7 @@ def add_ingredient(request):
             photo=photo,
             category=category,
             unit=unit,
-            price_per_unit=price_per_unit,
+            price=price,
         )
 
         data["ingredient_id"] = ingredient.ingredient_id
@@ -185,7 +197,7 @@ def edit_ingredient_view(request):
         photo = request.data.get('photo', "")
         category = request.data.get('category', "")
         unit = request.data.get('unit', "")
-        price_per_unit = request.data.get('price_per_unit', "")
+        value = request.data.get('value', "")
 
 
         if not ingredient_id:
@@ -197,16 +209,25 @@ def edit_ingredient_view(request):
         if not dish_id:
             errors['dish_id'] = ['Dish is required.']
 
-        if not photo:
-            errors['photo'] = ['Cover photo is required.']
+        if not category:
+            errors['category'] = ['Category is required.']
 
+        if not value:
+            errors['value'] = ['Value is required.']
+
+        if not unit:
+            errors['unit'] = ['Unit is required.']
+
+        #if not photo:
+        #    errors['photo'] = ['Photo is required.']
+#
 
         if not description:
             errors['description'] = ['Description is required.']
 
      # Check if the name is already taken
-        if DishIngredient.objects.filter(name=name).exists():
-            errors['name'] = ['An ingredient with this name already exists.']
+        #if DishIngredient.objects.filter(name=name).exists():
+        #    errors['name'] = ['An ingredient with this name already exists.']
 
         try:
             dish = Dish.objects.get(dish_id=dish_id)
@@ -225,7 +246,8 @@ def edit_ingredient_view(request):
 
         # Update fields only if provided and not empty
         if name:
-            ingredient.name = name
+            if not name == ingredient.name:
+                ingredient.name = name
         if dish:
             ingredient.dish = dish
         if description:
@@ -236,8 +258,8 @@ def edit_ingredient_view(request):
             ingredient.category = category
         if unit:
             ingredient.unit = unit
-        if price_per_unit:
-            ingredient.price_per_unit = price_per_unit
+        if value:
+            ingredient.value = value
         ingredient.save()
 
         data["name"] = ingredient.name

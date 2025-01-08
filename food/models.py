@@ -105,6 +105,7 @@ class DishIngredient(models.Model):
     category = models.CharField(max_length=50, choices=[('Solid', 'Solid'), ('Liquid', 'Liquid')], default='Solid')
     unit = models.CharField(max_length=50)  # Unit of measurement (kg, g, L, mL, cups, etc.)
     price = models.DecimalField(max_digits=10, decimal_places=2, default=0)  # Optional field for price tracking
+    value = models.CharField(max_length=50, null=True, blank=True)  # Unit of measurement (kg, g, L, mL, cups, etc.)
 
     is_archived = models.BooleanField(default=False)
 

@@ -562,6 +562,79 @@ def add_related_food(request):
     return Response(payload)
 
 
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+@authentication_classes([TokenAuthentication])
+def add_related_food_list(request):
+    payload = {}
+    data = {}
+    errors = {}
+
+    if request.method == 'POST':
+        dish_id = request.data.get('dish_id', "")
+        related_food = request.data.get('related_food', [])
+
+        if not dish_id:
+            errors['dish_id'] = ['Dish ID is required.']
+
+        if not related_food:
+            errors['related_food'] = ["Related food ids are required."]
+
+        try:
+            dish = Dish.objects.get(dish_id=dish_id)
+        except Dish.DoesNotExist:
+            errors['dish_id'] = ['Dish does not exist.']
+
+        # If there are errors, return them
+        if errors:
+            payload['message'] = "Errors"
+            payload['errors'] = errors
+            return Response(payload, status=status.HTTP_400_BAD_REQUEST)
+
+        existing_pairings = FoodPairing.objects.filter(food_item=dish)
+
+        # Initialize a list to track new pairings that were added
+        new_pairings = []
+
+        for food_id in related_food:
+            try:
+                related_dish = Dish.objects.get(dish_id=food_id)
+            except Dish.DoesNotExist:
+                errors['related_food'] = [f'Related food with ID {food_id} does not exist.']
+                payload['message'] = "Errors"
+                payload['errors'] = errors
+                return Response(payload, status=status.HTTP_400_BAD_REQUEST)
+
+            # Check if the pairing already exists for the current dish and related dish
+            if FoodPairing.objects.filter(food_item=dish, related_food=related_dish).exists():
+                # If the pairing exists, skip it and inform the user
+                errors['related_food'] = [f"{dish.name} is already paired with {related_dish.name}. Skipping."]
+                continue  # Skip to the next related food
+            
+            # If pairing does not exist, create the new pairing
+            new_food_pair = FoodPairing.objects.create(
+                food_item=dish,
+                related_food=related_dish
+            )
+            new_pairings.append(new_food_pair)
+
+        # Check if there were any new pairings created
+        if new_pairings:
+            # Create activity log for successful pairing additions
+            new_activity = AllActivity.objects.create(
+                subject="Food Relation added",
+                body=f"Relations were added for {dish.name}."
+            )
+            new_activity.save()
+
+            payload['message'] = "Successful"
+            payload['data'] = {'new_pairings': [pairing.related_food.dish_id for pairing in new_pairings]}
+        else:
+            # If no new pairings were created, return an appropriate message
+            payload['message'] = "No new pairings added (all pairings already exist)."
+
+    return Response(payload)
+
 
 @api_view(['POST', ])
 @permission_classes([IsAuthenticated, ])
@@ -618,3 +691,72 @@ def add_dish_custom_option(request):
         payload['data'] = data
 
     return Response(payload)
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+@authentication_classes([TokenAuthentication])
+def add_dish_custom_option_list(request):
+    payload = {}
+    errors = {}
+
+    # Get dish_id and custom_option_ids from the request
+    dish_id = request.data.get('dish_id', "")
+    custom_option_ids = request.data.get('custom_option_ids', [])  # No change: we simply get a list here
+
+    if not dish_id:
+        errors['dish_id'] = ['Dish ID is required.']
+
+    if not custom_option_ids:
+        errors['custom_option_ids'] = ['At least one custom option ID is required.']
+
+    # Validate that the dish exists
+    try:
+        dish = Dish.objects.get(dish_id=dish_id)
+    except Dish.DoesNotExist:
+        errors['dish_id'] = ['Dish does not exist.']
+
+    # Validate that each custom_option_id exists
+    custom_options = []
+    for custom_option_id in custom_option_ids:
+        try:
+            custom_option = CustomizationOption.objects.get(custom_option_id=custom_option_id)
+            custom_options.append(custom_option)
+        except CustomizationOption.DoesNotExist:
+            errors[f'custom_option_id_{custom_option_id}'] = [f'Custom option with ID {custom_option_id} does not exist.']
+
+    # If there are any errors, return them
+    if errors:
+        payload['message'] = 'Errors occurred'
+        payload['errors'] = errors
+        return Response(payload, status=status.HTTP_400_BAD_REQUEST)
+
+    # Check if the custom options are already associated with the dish
+    existing_customizations = FoodCustomization.objects.filter(food_item=dish, custom_option__in=custom_options)
+
+    # Prepare a list of options that are not already associated with the dish
+    new_customizations = [custom_option for custom_option in custom_options if custom_option not in [ec.custom_option for ec in existing_customizations]]
+
+    # If there are any new customizations to be added
+    if new_customizations:
+        # Create the FoodCustomization for each valid new custom option
+        for custom_option in new_customizations:
+            FoodCustomization.objects.create(
+                food_item=dish,
+                custom_option=custom_option
+            )
+
+        # Create activity log entry
+        new_activity = AllActivity.objects.create(
+            subject="Food Customization added",
+            body=f"Customizations were added to {dish.name}."
+        )
+        new_activity.save()
+
+    # If no new customizations were added, inform the user
+    if not new_customizations:
+        payload['message'] = 'No new customizations added (all options already exist for this dish).'
+        return Response(payload, status=status.HTTP_200_OK)
+
+    payload['message'] = 'Success'
+    payload['data'] = {'dish_id': dish_id, 'custom_option_ids': custom_option_ids}
+    return Response(payload, status=status.HTTP_200_OK)
