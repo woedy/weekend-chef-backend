@@ -9,8 +9,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from food.api.serializers import AllFoodCategorysSerializer
-from food.models import FoodCategory
-from homepage.api.serializers import HomeFoodCategorysSerializer
+from food.models import Dish, FoodCategory
+from homepage.api.serializers import HomeDishsSerializer, HomeFoodCategorysSerializer
 from orders.models import Cart, Order
 
 
@@ -42,7 +42,7 @@ def get_homepage_data_view(request):
         return Response(payload, status=status.HTTP_400_BAD_REQUEST)
     
 
-    categories = FoodCategory.objects.all()
+    categories = FoodCategory.objects.filter(is_archived=False, parent__isnull=True)
     category_serializer = HomeFoodCategorysSerializer(categories, many=True)
     if category_serializer:
         dish_categories = category_serializer.data
@@ -53,7 +53,12 @@ def get_homepage_data_view(request):
     # Safely handle cart
     cart = Cart.objects.filter(client__user=user).first()
     cart_item_count = cart.items.all().count() if cart else 0
-    
+
+    all_dishs = Dish.objects.filter(is_archived=False)[:10]
+    all_dishs_serializer = HomeDishsSerializer(all_dishs, many=True)
+
+
+
     user_data['user_id'] = user.user_id
     user_data['first_name'] = user.first_name
     user_data['last_name'] = user.last_name
@@ -63,6 +68,7 @@ def get_homepage_data_view(request):
     data['notification_count'] = notification_count
     data['dish_categories'] = dish_categories
     data['cart_item_count'] = cart_item_count
+    data['popular'] = all_dishs_serializer.data
 
     payload['message'] = "Successful"
     payload['data'] = data

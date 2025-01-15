@@ -7,8 +7,12 @@ from rest_framework import status
 from rest_framework.response import Response
 
 from chef.models import ChefProfile
-from clients.api.serializers import ChefProfileSerializer, DishDetailsSerializer, DishIngredientSerializer, FoodCustomizationSerializer, FoodItemSerializer, FoodPairingSerializer
-from food.models import Dish, DishGallery, DishIngredient, FoodCustomization, FoodPairing
+from clients.api.serializers import ChefProfileSerializer, ClientFoodCategorysSerializer, DishDetailsSerializer, DishIngredientSerializer, FoodCustomizationSerializer, FoodItemSerializer, FoodPairingSerializer
+from food.models import Dish, DishGallery, DishIngredient, FoodCategory, FoodCustomization, FoodPairing
+
+
+from django.core.paginator import Paginator, PageNotAnInteger, EmptyPage
+from django.db.models import Q
 
 User = get_user_model()
 
@@ -112,6 +116,123 @@ def get_client_dish_details_view(request):
     data['ingredients'] = ingredients
 
     payload['message'] = "Successful"
+    payload['data'] = data
+
+    return Response(payload, status=status.HTTP_200_OK)
+
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+@authentication_classes([TokenAuthentication])
+def get_all_client_food_categories(request):
+    payload = {}
+    data = {}
+    errors = {}
+
+    # Get query parameters
+    search_query = request.query_params.get('search', '')
+    page_number = request.query_params.get('page', 1)
+    page_size = 10
+
+    # Filter categories: only those without a parent (main categories)
+    all_food_categories = FoodCategory.objects.filter(is_archived=False, parent__isnull=True)
+
+    # Apply search filter if provided
+    if search_query:
+        all_food_categories = all_food_categories.filter(
+            Q(name__icontains=search_query)
+        )
+
+    # Pagination
+    paginator = Paginator(all_food_categories, page_size)
+
+    try:
+        paginated_food_categories = paginator.page(page_number)
+    except PageNotAnInteger:
+        paginated_food_categories = paginator.page(1)
+    except EmptyPage:
+        paginated_food_categories = paginator.page(paginator.num_pages)
+
+    # Serialize food categories
+    all_food_categories_serializer = ClientFoodCategorysSerializer(paginated_food_categories, many=True)
+
+    # Prepare pagination data
+    data['food_categories'] = all_food_categories_serializer.data
+    data['pagination'] = {
+        'page_number': paginated_food_categories.number,
+        'total_pages': paginator.num_pages,
+        'next': paginated_food_categories.next_page_number() if paginated_food_categories.has_next() else None,
+        'previous': paginated_food_categories.previous_page_number() if paginated_food_categories.has_previous() else None,
+    }
+
+    # Return successful response
+    payload['message'] = "Successful"
+    payload['data'] = data
+
+    return Response(payload, status=status.HTTP_200_OK)
+
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated, ])
+@authentication_classes([TokenAuthentication, ])
+def get_all_client_food_sub_categories(request):
+    payload = {}
+    data = {}
+    errors = {}
+
+    search_query = request.query_params.get('search', '')
+    category_id = request.query_params.get('category_id', '')
+    page_number = request.query_params.get('page', 1)
+    page_size = 10
+
+    # Ensure category_id is provided and valid
+    if not category_id:
+        errors['category_id'] = ['Category ID is required.']
+        payload['message'] = 'Errors'
+        payload['errors'] = errors
+        return Response(payload, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        # Fetch the food category based on the provided category_id
+        food_category = FoodCategory.objects.get(id=category_id)
+    except FoodCategory.DoesNotExist:
+        errors['category_id'] = ['FoodCategory does not exist.']
+        payload['message'] = 'Errors'
+        payload['errors'] = errors
+        return Response(payload, status=status.HTTP_404_NOT_FOUND)
+
+    # Fetch all subcategories related to the found category
+    all_subcategories = food_category.subcategories.all().filter(is_archived=False)
+
+    # If there is a search query, filter the subcategories by name
+    if search_query:
+        all_subcategories = all_subcategories.filter(Q(name__icontains=search_query))
+
+    # Paginate the results
+    paginator = Paginator(all_subcategories, page_size)
+    
+    try:
+        paginated_subcategories = paginator.page(page_number)
+    except PageNotAnInteger:
+        paginated_subcategories = paginator.page(1)
+    except EmptyPage:
+        paginated_subcategories = paginator.page(paginator.num_pages)
+
+    # Serialize the data
+    subcategories_serializer = ClientFoodCategorysSerializer(paginated_subcategories, many=True)
+
+    # Prepare the response data
+    data['subcategories'] = subcategories_serializer.data
+    data['pagination'] = {
+        'page_number': paginated_subcategories.number,
+        'total_pages': paginator.num_pages,
+        'next': paginated_subcategories.next_page_number() if paginated_subcategories.has_next() else None,
+        'previous': paginated_subcategories.previous_page_number() if paginated_subcategories.has_previous() else None,
+    }
+
+    payload['message'] = 'Successful'
     payload['data'] = data
 
     return Response(payload, status=status.HTTP_200_OK)

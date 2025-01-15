@@ -4,7 +4,7 @@ from rest_framework import serializers
 from chef.models import ChefProfile
 from clients.models import Client
 from complaints.models import ClientComplaint
-from food.models import CustomizationOption, Dish, DishGallery, DishIngredient, FoodCustomization, FoodPairing
+from food.models import CustomizationOption, Dish, DishGallery, DishIngredient, FoodCategory, FoodCustomization, FoodPairing
 
 User = get_user_model()
 
@@ -66,25 +66,45 @@ class DishIngredientSerializer(serializers.ModelSerializer):
 
 class DishDetailsSerializer(serializers.ModelSerializer):
     category_name = serializers.SerializerMethodField()
-    ingredients = DishIngredientSerializer(many=True) 
+    parent_category_names = serializers.SerializerMethodField()  # Field to get parent category names
+    ingredients = DishIngredientSerializer(many=True)
 
     class Meta:
         model = Dish
-        fields = ['dish_id', 
-                  'name', 
-                  'description', 
-                  'base_price', 
-                  'cover_photo', 
-                  'category_name', 
-                  'quantity', 
-                  'value', 
-                  'customizable',
-                  'ingredients',
-                  ]
+        fields = [
+            'dish_id', 
+            'name', 
+            'description', 
+            'base_price', 
+            'medium_price',
+            'large_price',
+            'cover_photo', 
+            'category_name', 
+            'quantity', 
+            'value', 
+            'customizable',
+            'ingredients',
+            'parent_category_names',  # Add parent_category_names field
+        ]
 
     def get_category_name(self, obj):
         return obj.category.name if obj.category else None
-    
+
+    def get_parent_category_names(self, obj):
+        # Initialize a list to store the parent category names
+        parent_categories = []
+        current_category = obj.category
+        
+        # Traverse the category hierarchy upwards to get the parent categories
+        while current_category and current_category.parent:
+            parent_categories.append(current_category.parent.name)
+            current_category = current_category.parent
+        
+        # Return the parent categories (if any), reversed to show the hierarchy from top to bottom
+        return parent_categories[::-1]
+
+
+        
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
@@ -147,3 +167,11 @@ class FoodPairingSerializer(serializers.ModelSerializer):
     class Meta:
         model = FoodPairing
         fields = ['food_item', 'related_food']
+
+
+
+class ClientFoodCategorysSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = FoodCategory
+        fields = ['id', 'name', 'description', 'photo', 'parent']

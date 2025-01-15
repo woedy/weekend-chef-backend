@@ -33,6 +33,8 @@ def add_dish(request):
         category_id = request.data.get('category_id', "")
         cover_photo = request.data.get('cover_photo', "")
         base_price = request.data.get('base_price', "")
+        medium_price = request.data.get('medium_price', "")
+        large_price = request.data.get('large_price', "")
         quantity = request.data.get('quantity', "")
         value = request.data.get('value', "")
 
@@ -48,6 +50,13 @@ def add_dish(request):
 
         if not base_price:
             errors['base_price'] = ['Base Price is required.']
+        
+        if not medium_price:
+            errors['medium_price'] = ['Medium Price is required.']
+        
+        if not large_price:
+            errors['large_price'] = ['Laege Price is required.']
+
         if not quantity:
             errors['quantity'] = ['Quantity is required.']
         if not value:

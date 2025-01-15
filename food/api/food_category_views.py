@@ -16,9 +16,9 @@ from food.models import FoodCategory
 User = get_user_model()
 
 
-@api_view(['POST', ])
-@permission_classes([IsAuthenticated, ])
-@authentication_classes([TokenAuthentication, ])
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+@authentication_classes([TokenAuthentication])
 def add_food_category(request):
     payload = {}
     data = {}
@@ -28,41 +28,54 @@ def add_food_category(request):
         name = request.data.get('name', "")
         description = request.data.get('description', "")
         photo = request.data.get('photo', "")
+        parent_id = request.data.get('parent_id', None)  # Get the parent category ID if provided
 
-
+        # Validation for required fields
         if not name:
             errors['name'] = ['Name is required.']
-
         if not description:
             errors['description'] = ['Description is required.']
 
-     # Check if the name is already taken
+        # Check if the name is already taken
         if FoodCategory.objects.filter(name=name).exists():
             errors['name'] = ['A food category with this name already exists.']
+
+        # Validate the parent category if provided
+        if parent_id:
+            try:
+                parent_category = FoodCategory.objects.get(id=parent_id)
+            except FoodCategory.DoesNotExist:
+                errors['parent_id'] = ['The specified parent category does not exist.']
+            else:
+                # Ensure that a category cannot be its own parent
+                if parent_category.parent and parent_category.parent.id == parent_category.id:
+                    errors['parent_id'] = ['A category cannot be its own parent.']
 
         if errors:
             payload['message'] = "Errors"
             payload['errors'] = errors
             return Response(payload, status=status.HTTP_400_BAD_REQUEST)
 
-
+        # Create the new food category
         food_category = FoodCategory.objects.create(
             name=name,
             description=description,
             photo=photo,
-
+            parent=parent_category if parent_id else None  # Set the parent if it's a subcategory
         )
 
+        # Prepare response data
         data["id"] = food_category.id
         data["name"] = food_category.name
         data["description"] = food_category.description
-        data["photo"] = food_category.photo.url
-     
+        data["photo"] = food_category.photo.url if food_category.photo else None
+        data["parent_id"] = food_category.parent.id if food_category.parent else None
 
-        payload['message'] = "Successful"
+        payload['message'] = "Category added successfully"
         payload['data'] = data
 
-    return Response(payload)
+    return Response(payload, status=status.HTTP_201_CREATED)
+
 
 @api_view(['GET', ])
 @permission_classes([IsAuthenticated, ])
@@ -76,7 +89,7 @@ def get_all_food_categorys_view(request):
     page_number = request.query_params.get('page', 1)
     page_size = 10
 
-    all_food_categorys = FoodCategory.objects.all().filter(is_archived=False)
+    all_food_categorys = FoodCategory.objects.all().filter(is_archived=False).filter(parent__isnull=True) 
 
 
     if search_query:
