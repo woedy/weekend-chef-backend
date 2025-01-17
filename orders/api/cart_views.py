@@ -23,6 +23,7 @@ User = get_user_model()
 
 
 
+
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 @authentication_classes([TokenAuthentication])
@@ -33,9 +34,11 @@ def add_cart_item(request):
     if request.method == 'POST':
         # Extract fields from the request body
         user_id = request.data.get('user_id')
-        chef_id = request.data.get('chef_id')
         dish_id = request.data.get('dish_id')
         quantity = request.data.get('quantity')
+        package = request.data.get('package')
+        package_price = request.data.get('package_price')
+        value = request.data.get('value')
         is_custom = request.data.get('is_custom', False)
         special_notes = request.data.get('special_notes', '')
         customizations = request.data.get('customizations', [])
@@ -45,8 +48,15 @@ def add_cart_item(request):
             errors['dish_id'] = ['Dish ID is required.']
         if not user_id:
             errors['user_id'] = ['User ID is required.']
-        if not chef_id:
-            errors['chef_id'] = ['Chef ID is required.']
+
+        if not package:
+            errors['package'] = ['Package is required.']
+
+        if not package_price:
+            errors['package_price'] = ['Package price is required.']
+
+        if not value:
+            errors['value'] = ['Value is required.']
 
         if not quantity or quantity <= 0:
             errors['quantity'] = ['Quantity must be greater than 0.']
@@ -62,11 +72,6 @@ def add_cart_item(request):
             client = Client.objects.get(user__user_id=user_id)
         except Client.DoesNotExist:
             errors['user_id'] = ['Client does not exist.']
-
-        try:
-            chef = ChefProfile.objects.get(chef_id=chef_id)
-        except ChefProfile.DoesNotExist:
-            errors['chef_id'] = ['Chef does not exist.']
 
         try:
             dish = Dish.objects.get(dish_id=dish_id)
@@ -85,14 +90,18 @@ def add_cart_item(request):
         cart_item = CartItem(
             cart=cart,
             dish=dish,
-            chef=chef,
             quantity=quantity,
+            value=value,
+            package=package,
+            package_price=float(package_price),
             is_custom=is_custom,
             special_notes=special_notes
         )
 
         # Save the CartItem
         cart_item.save()
+
+
 
         # Handle customizations if the item is custom
         if is_custom and customizations:
@@ -144,6 +153,10 @@ def add_cart_item(request):
                     'message': "Invalid Customization Quantity",
                     'errors': {'customizations': [str(e)]},
                 }, status=status.HTTP_400_BAD_REQUEST)
+            
+
+        cart_item.item_total_price = cart_item.total_price()
+        cart_item.save()
 
         # Prepare response data
         data = {
@@ -220,32 +233,40 @@ def get_all_carts_view(request):
     # Prepare data for response
     cart_data = []
     for cart in paginated_carts:
-        cart_items = CartItem.objects.filter(cart=cart)
+        cart_items = CartItem.objects.filter(cart=cart).order_by('-created_at')
 
         cart_item_data = []
         for item in cart_items:
+
+            parent_categories = []
+            current_category = item.dish.category
+        
+            # Traverse the category hierarchy upwards to get the parent categories
+            while current_category and current_category.parent:
+                parent_categories.append(current_category.parent.name)
+                current_category = current_category.parent
+
+
+
             cart_item_data.append({
                 'id': item.id,
                 'dish_name': item.dish.name,
                 'dish_cover_photo': item.dish.cover_photo.url,
                 'quantity': item.quantity,
-                'value': item.new_value,
-
-                'chef_name': item.chef.user.first_name + ' ' + item.chef.user.last_name,
-                'chef_location': item.chef.kitchen_location,
-                'chef_photo': item.chef.user.photo.url,
+                'category': item.dish.category.name,
     
-                'total_price': item.total_price()
+                'item_total_price': item.item_total_price,
+                'is_custom': item.is_custom,
+
+                'parent_category_names':parent_categories[::-1]
             })
 
-        cart_data.append({
-            'cart_id': cart.id,
-            'created_at': cart.created_at,
-            'cart_items': cart_item_data
-        })
+
+
+   
 
     # Constructing pagination info
-    data['carts'] = cart_data
+    data['cart_items'] = cart_item_data
     data['pagination'] = {
         'page_number': paginated_carts.number,
         'total_pages': paginator.num_pages,
@@ -658,36 +679,40 @@ def delete_cart_view(request, cart_id):
 
 
 
-@api_view(['DELETE'])
+
+@api_view(['POST'])
 @permission_classes([IsAuthenticated])
 @authentication_classes([TokenAuthentication])
-def delete_cart_item_view(request, cart_id, item_id):
-    """
-    View to delete a specific cart item from the cart.
-    """
+def delete_cart_item_view(request):
     payload = {}
+    data = {}
+    errors = {}
 
-    try:
-        # Retrieve the cart based on the cart_id (URL parameter)
-        cart = Cart.objects.get(id=cart_id)
+    if request.method == 'POST':
 
-        # Ensure the cart belongs to the authenticated user
-        if cart.client.user != request.user:
-            payload['message'] = "You do not have permission to delete items from this cart."
-            return Response(payload, status=status.HTTP_403_FORBIDDEN)
+        item_id = request.data.get('item_id', "")
 
-        # Retrieve the cart item based on the item_id
-        cart_item = CartItem.objects.get(id=item_id, cart=cart)
+        if not item_id:
+            errors['item_id'] = ['Item id is required.']
 
-        # Delete the cart item
+
+        try:
+            cart_item = CartItem.objects.get(id=item_id)
+        except:
+            errors['item_id'] = ['CartItem does not exist.']
+
+  
+
+        if errors:
+            payload['message'] = "Errors"
+            payload['errors'] = errors
+            return Response(payload, status=status.HTTP_400_BAD_REQUEST)
+
         cart_item.delete()
 
-        payload['message'] = "Cart item deleted successfully."
-        return Response(payload, status=status.HTTP_204_NO_CONTENT)
 
-    except Cart.DoesNotExist:
-        payload['message'] = "Cart not found."
-        return Response(payload, status=status.HTTP_404_NOT_FOUND)
-    except CartItem.DoesNotExist:
-        payload['message'] = "Cart item not found."
-        return Response(payload, status=status.HTTP_404_NOT_FOUND)
+        payload['message'] = "Successful"
+        payload['data'] = data
+
+    return Response(payload)
+

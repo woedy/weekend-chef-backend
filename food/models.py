@@ -24,11 +24,17 @@ class Dish(models.Model):
     category = models.ForeignKey(FoodCategory, on_delete=models.CASCADE, related_name='dishes')
     description = models.TextField()
     cover_photo = models.ImageField(upload_to='dish/covers/', null=True, blank=True)
-    base_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    medium_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    large_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     quantity = models.IntegerField(default=1)
-    value = models.CharField(max_length=200)
+
+    
+    small_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    small_value = models.CharField(max_length=2000, null=True, blank=True)
+
+    medium_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    medium_value = models.CharField(max_length=2000, null=True, blank=True)
+
+    large_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    large_value = models.CharField(max_length=2000, null=True, blank=True)
 
     customizable = models.BooleanField(default=True)
     is_archived = models.BooleanField(default=False)
@@ -46,6 +52,17 @@ def pre_save_dish_id_receiver(sender, instance, *args, **kwargs):
         instance.dish_id = unique_dish_id_generator(instance)
 
 pre_save.connect(pre_save_dish_id_receiver, sender=Dish)
+
+
+
+
+
+
+
+
+
+
+
 
 
 class FoodPairing(models.Model):

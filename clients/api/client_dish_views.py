@@ -7,7 +7,7 @@ from rest_framework import status
 from rest_framework.response import Response
 
 from chef.models import ChefProfile
-from clients.api.serializers import ChefProfileSerializer, ClientFoodCategorysSerializer, DishDetailsSerializer, DishIngredientSerializer, FoodCustomizationSerializer, FoodItemSerializer, FoodPairingSerializer
+from clients.api.serializers import ChefProfileSerializer, ClientDishesSerializer, ClientFoodCategorysSerializer, DishDetailsSerializer, DishIngredientSerializer, FoodCustomizationSerializer, FoodItemSerializer, FoodPairingSerializer
 from food.models import Dish, DishGallery, DishIngredient, FoodCategory, FoodCustomization, FoodPairing
 
 
@@ -26,7 +26,6 @@ def get_client_dish_details_view(request):
     data = {}
     errors = {}
 
-    closest_chef = []
     custom = []
     ingredients = []
     gallery = []
@@ -68,10 +67,7 @@ def get_client_dish_details_view(request):
             payload['errors'] = errors
             return Response(payload, status=status.HTTP_400_BAD_REQUEST)
 
-    # Get closest chefs (if needed)
-    chefs = ChefProfile.objects.all()
-    chef_serializer = ChefProfileSerializer(chefs, many=True)
-    closest_chef = chef_serializer.data if chef_serializer else []
+
 
     # Get custom options for the dish (exclude food_item from response)
     custom_options = FoodCustomization.objects.filter(food_item=dish)
@@ -110,10 +106,78 @@ def get_client_dish_details_view(request):
     # Prepare response data
     data['dish'] = dish
     
-    data['closest_chef'] = closest_chef
     data['related_foods'] = related_foods  # Only the related foods, not the original dish
     data['custom'] = custom  # Now custom contains the flattened custom options
     data['ingredients'] = ingredients
+
+    payload['message'] = "Successful"
+    payload['data'] = data
+
+    return Response(payload, status=status.HTTP_200_OK)
+
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+@authentication_classes([TokenAuthentication])
+def get_all_client_dishes_view(request):
+    payload = {}
+    data = {}
+    errors = {}
+
+    # Get query parameters
+    search_query = request.query_params.get('search', '')
+    page_number = request.query_params.get('page', 1)
+    category_id = request.query_params.get('category_id', '')  
+    page_size = 10
+
+
+
+
+    if not category_id:
+        errors['category_id'] = ['Category ID is required.']
+        return Response({"error": errors}, status=status.HTTP_400_BAD_REQUEST)
+
+    # Start with all dishes, excluding archived ones
+    all_dishs = Dish.objects.filter(is_archived=False)
+    print(all_dishs)
+
+
+
+    try:
+        all_dishs = all_dishs.filter(category__id=category_id)
+        print(all_dishs)
+    except:
+        errors['category_id'] = ["Invalid categories format."]
+        return Response({"error": errors}, status=status.HTTP_400_BAD_REQUEST)
+
+    # If a search query is provided, filter by dish name
+    if search_query:
+        all_dishs = all_dishs.filter(Q(name__icontains=search_query)).distinct()
+
+
+
+    # Paginate the result
+    paginator = Paginator(all_dishs, page_size)
+
+    try:
+        paginated_dishs = paginator.page(page_number)
+    except PageNotAnInteger:
+        paginated_dishs = paginator.page(1)
+    except EmptyPage:
+        paginated_dishs = paginator.page(paginator.num_pages)
+
+    # Serialize the paginated dishes
+    all_dishs_serializer = ClientDishesSerializer(paginated_dishs, many=True)
+
+    # Prepare the response data
+    data['dishes'] = all_dishs_serializer.data
+    data['pagination'] = {
+        'page_number': paginated_dishs.number,
+        'total_pages': paginator.num_pages,
+        'next': paginated_dishs.next_page_number() if paginated_dishs.has_next() else None,
+        'previous': paginated_dishs.previous_page_number() if paginated_dishs.has_previous() else None,
+    }
 
     payload['message'] = "Successful"
     payload['data'] = data
@@ -224,7 +288,7 @@ def get_all_client_food_sub_categories(request):
     subcategories_serializer = ClientFoodCategorysSerializer(paginated_subcategories, many=True)
 
     # Prepare the response data
-    data['subcategories'] = subcategories_serializer.data
+    data['food_categories'] = subcategories_serializer.data
     data['pagination'] = {
         'page_number': paginated_subcategories.number,
         'total_pages': paginator.num_pages,
@@ -236,3 +300,8 @@ def get_all_client_food_sub_categories(request):
     payload['data'] = data
 
     return Response(payload, status=status.HTTP_200_OK)
+
+
+
+
+

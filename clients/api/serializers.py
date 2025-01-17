@@ -75,13 +75,19 @@ class DishDetailsSerializer(serializers.ModelSerializer):
             'dish_id', 
             'name', 
             'description', 
-            'base_price', 
+
+            'small_price', 
+            'small_value', 
+
             'medium_price',
+            'medium_value', 
+
             'large_price',
+            'large_value', 
+
             'cover_photo', 
             'category_name', 
             'quantity', 
-            'value', 
             'customizable',
             'ingredients',
             'parent_category_names',  # Add parent_category_names field
@@ -129,7 +135,7 @@ class FoodItemSerializer(serializers.ModelSerializer):
                   'name', 
                   'cover_photo',
                   'description',
-                  'base_price',
+                  'small_price',
                   'category_name',
                   ]
         
@@ -175,3 +181,28 @@ class ClientFoodCategorysSerializer(serializers.ModelSerializer):
     class Meta:
         model = FoodCategory
         fields = ['id', 'name', 'description', 'photo', 'parent']
+
+
+
+
+
+
+
+
+
+class ClientDishesSerializer(serializers.ModelSerializer):
+    category_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Dish
+        fields = ['dish_id', 
+                  'name', 
+                  'cover_photo',
+                  'description',
+                  'small_price',
+                  'category_name',
+                  'small_value'
+                  ]
+        
+    def get_category_name(self, obj):
+        return obj.category.name if obj.category else None

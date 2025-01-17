@@ -32,11 +32,16 @@ def add_dish(request):
         description = request.data.get('description', "")
         category_id = request.data.get('category_id', "")
         cover_photo = request.data.get('cover_photo', "")
-        base_price = request.data.get('base_price', "")
-        medium_price = request.data.get('medium_price', "")
-        large_price = request.data.get('large_price', "")
         quantity = request.data.get('quantity', "")
-        value = request.data.get('value', "")
+
+
+        small_price = request.data.get('small_price', "")
+        small_value = request.data.get('small_value', "")
+        medium_price = request.data.get('medium_price', "")
+        medium_value = request.data.get('medium_value', "")
+        large_price = request.data.get('large_price', "")
+        large_value = request.data.get('large_value', "")
+
 
 
         if not name:
@@ -48,22 +53,31 @@ def add_dish(request):
         if not cover_photo:
             errors['cover_photo'] = ['Cover photo is required.']
 
-        if not base_price:
-            errors['base_price'] = ['Base Price is required.']
-        
-        if not medium_price:
-            errors['medium_price'] = ['Medium Price is required.']
-        
-        if not large_price:
-            errors['large_price'] = ['Laege Price is required.']
-
         if not quantity:
             errors['quantity'] = ['Quantity is required.']
-        if not value:
-            errors['value'] = ['Value is required.']
 
         if not description:
             errors['description'] = ['Description is required.']
+
+
+        
+        if not small_price:
+            errors['small_price'] = ["Small Price required"]
+        if not small_value:
+            errors['small_value'] = ["Small Value required"]
+
+        if not medium_price:
+            errors['medium_price'] = ["Medium Price required"]
+        if not medium_value:
+            errors['medium_value'] = ["Medium Value required"]
+
+
+        if not large_price:
+            errors['large_price'] = ["Large Price required"]
+        if not large_value:
+            errors['Large_value'] = ["Large Value required"]
+
+
 
      # Check if the name is already taken
         if Dish.objects.filter(name=name).exists():
@@ -85,9 +99,14 @@ def add_dish(request):
             name=name,
             description=description,
             cover_photo=cover_photo,
-            base_price=base_price,
             quantity=quantity,
-            value=value
+
+            small_price =small_price,
+            small_value =small_value ,
+            medium_price=medium_price,
+            medium_value=medium_value,
+            large_price =large_price ,
+            large_value =large_value 
 
         )
 
@@ -769,3 +788,75 @@ def add_dish_custom_option_list(request):
     payload['message'] = 'Success'
     payload['data'] = {'dish_id': dish_id, 'custom_option_ids': custom_option_ids}
     return Response(payload, status=status.HTTP_200_OK)
+
+
+
+@api_view(['POST', ])
+@permission_classes([IsAuthenticated, ])
+@authentication_classes([TokenAuthentication, ])
+def add_dish_package_view(request):
+    payload = {}
+    data = {}
+    errors = {}
+
+    if request.method == 'POST':
+        dish_id = request.data.get('dish_id', "")
+
+        small_price = request.data.get('small_price', "")
+        small_value = request.data.get('small_value', "")
+        medium_price = request.data.get('medium_price', "")
+        medium_value = request.data.get('medium_value', "")
+        large_price = request.data.get('large_price', "")
+        large_value = request.data.get('large_value', "")
+
+
+
+
+        if not dish_id:
+            errors['dish_id'] = ['Dish ID is required.']
+
+
+        if not small_price:
+            errors['small_price'] = ["Small Price required"]
+        if not small_value:
+            errors['small_value'] = ["Small Value required"]
+
+        if not medium_price:
+            errors['medium_price'] = ["Medium Price required"]
+        if not medium_value:
+            errors['medium_value'] = ["Medium Value required"]
+
+
+        if not large_price:
+            errors['large_price'] = ["Large Price required"]
+        if not large_value:
+            errors['Large_value'] = ["Large Value required"]
+
+
+
+
+
+        try:
+            dish = Dish.objects.get(dish_id=dish_id)
+        except:
+            errors['dish_id'] = ['Dish does not exist.']
+
+
+        if errors:
+            payload['message'] = "Errors"
+            payload['errors'] = errors
+            return Response(payload, status=status.HTTP_400_BAD_REQUEST)
+        
+
+
+
+        new_activity = AllActivity.objects.create(
+            subject="Dish Price Addedd",
+            body=f"{dish.name} price was added."
+        )
+        new_activity.save()
+
+        payload['message'] = "Successful"
+        payload['data'] = data
+
+    return Response(payload)

@@ -21,7 +21,15 @@ class AllDishsSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Dish
-        fields = ['dish_id', 'name', 'category_name', 'description', 'cover_photo', 'base_price', 'value', 'customizable']
+        fields = ['dish_id', 
+                  'name', 
+                  'category_name', 
+                  'description', 
+                  'cover_photo', 
+                  'small_price', 
+                  'small_value', 
+                  'customizable'
+                  ]
 
     def get_category_name(self, obj):
         return obj.category.name if obj.category else None

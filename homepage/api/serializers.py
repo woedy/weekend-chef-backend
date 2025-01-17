@@ -8,7 +8,7 @@ class HomeDishsSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Dish
-        fields = ['dish_id', 'name', 'cover_photo', 'base_price', 'value', 'customizable', 'description']
+        fields = ['dish_id', 'name', 'cover_photo', 'small_price', 'small_value', 'customizable', 'description']
 
 
 class HomeFoodCategorysSerializer(serializers.ModelSerializer):

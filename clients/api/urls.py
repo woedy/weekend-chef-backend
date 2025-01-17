@@ -1,6 +1,6 @@
 from django.urls import path
 
-from clients.api.client_dish_views import get_all_client_food_categories, get_all_client_food_sub_categories, get_client_dish_details_view
+from clients.api.client_dish_views import get_all_client_dishes_view, get_all_client_food_categories, get_all_client_food_sub_categories, get_client_dish_details_view
 from clients.api.views import add_client, get_all_clients_view, get_client_details_view, edit_client, archive_client, \
     get_all_archived_clients_view, unarchive_client, delete_client, add_client_complaint, edit_client_complaint, \
     get_all_client_complaints_view, get_client_complaint_details_view, archive_client_complaint, \
@@ -31,6 +31,7 @@ urlpatterns = [
     path('change-complaint-status/', change_complaint_status, name="change_complaint_status"),
 
 
+path('get-all-client-dishes/', get_all_client_dishes_view, name="get_all_client_dishes_view"),
 path('get-client-dish-details/', get_client_dish_details_view, name="get_client_dish_details_view"),
 path('get-all-client-food-categories/', get_all_client_food_categories, name="get_all_client_food_categories"),
 path('get-all-client-food-sub-categories/', get_all_client_food_sub_categories, name="get_all_client_food_sub_categories"),

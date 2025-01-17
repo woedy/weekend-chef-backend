@@ -43,10 +43,14 @@ class CustomizationValue(models.Model):
 class CartItem(models.Model):
     cart = models.ForeignKey(Cart, related_name='items', on_delete=models.CASCADE)
     dish = models.ForeignKey(Dish, related_name='cart_items', on_delete=models.CASCADE)
-    chef = models.ForeignKey(ChefProfile, related_name='cart_chef', on_delete=models.CASCADE)
     is_custom = models.BooleanField(default=False)
+
     quantity = models.PositiveIntegerField()
-    new_value = models.CharField(max_length=200)
+    value = models.CharField(max_length=200)
+    package = models.CharField(max_length=200)
+    package_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+
+    item_total_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
 
     customizations = models.ManyToManyField(CustomizationValue, related_name='cart_items', blank=True)
     special_notes = models.TextField(max_length=100, null=True, blank=True)
@@ -62,14 +66,14 @@ class CartItem(models.Model):
 
     def total_price(self):
         # Start with the base price of the product
-        base_price = self.dish.base_price
+        package_price = float(self.package_price)
         
         # Add the price of each customization option (meat type, spice level, etc.)
         for customization in self.customizations.all():
-            base_price += customization.customization_option.price * customization.quantity
+            package_price += float(customization.customization_option.price) * customization.quantity
 
         # Multiply by quantity (if more than 1 item)
-        return base_price * self.quantity
+        return float(package_price) * self.quantity
 
 
 
