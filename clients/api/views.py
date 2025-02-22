@@ -14,7 +14,7 @@ from activities.models import AllActivity
 from clients.api.serializers import AllClientsSerializer, ClientDetailsSerializer, AllClientComplaintsSerializer, \
     ClientComplaintDetailSerializer
 
-from clients.models import Client
+from clients.models import Client, ClientHomeLocation
 
 User = get_user_model()
 
@@ -973,3 +973,79 @@ def get_all_archived_client_complaints_view(request):
 
     return Response(payload, status=status.HTTP_200_OK)
 
+
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+@authentication_classes([TokenAuthentication])
+def add_my_location_view(request):
+    payload = {}
+    data = {}
+    errors = {}
+
+    if request.method == 'POST':
+        # Extract data from the request
+        user_id = request.data.get('user_id', "")
+        location_name = request.data.get('location_name', "")
+        digital_address = request.data.get('digital_address', "")
+        lat = request.data.get('lat', None)
+        lng = request.data.get('lng', None)
+
+        # Validate the incoming data
+        if not user_id:
+            errors['user_id'] = ['User ID is required.']
+        
+        if not location_name:
+            errors['location_name'] = ['Location Name is required.']
+        
+        if not digital_address:
+            errors['digital_address'] = ['Digital Address is required.']
+        
+        if lat is None:
+            errors['lat'] = ['Latitude is required.']
+        
+        if lng is None:
+            errors['lng'] = ['Longitude is required.']
+
+        if errors:
+            payload['message'] = "Errors"
+            payload['errors'] = errors
+            return Response(payload, status=status.HTTP_400_BAD_REQUEST)
+
+        # Check if the user exists
+        try:
+            client = Client.objects.get(user__user_id=user_id)
+        except Client.DoesNotExist:
+            errors['user_id'] = ['User not found.']
+            payload['message'] = "Errors"
+            payload['errors'] = errors
+            return Response(payload, status=status.HTTP_404_NOT_FOUND)
+
+        # Check if the location name already exists for this client
+        if ClientHomeLocation.objects.filter(client=client, location_name=location_name).exists():
+            errors['location_name'] = ['Location Name already exists for this client.']
+            payload['message'] = "Errors"
+            payload['errors'] = errors
+            return Response(payload, status=status.HTTP_400_BAD_REQUEST)
+
+        # Create the location entry
+        location = ClientHomeLocation.objects.create(
+            client=client,
+            location_name=location_name,
+            digital_address=digital_address,
+            lat=lat,
+            lng=lng
+        )
+
+        # Prepare the response data
+        data["location_id"] = location.id
+        data["location_name"] = location.location_name
+        data["digital_address"] = location.digital_address
+        data["lat"] = location.lat
+        data["lng"] = location.lng
+
+        payload['message'] = "Location added successfully"
+        payload['data'] = data
+
+        return Response(payload, status=status.HTTP_201_CREATED)

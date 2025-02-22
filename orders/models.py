@@ -3,7 +3,7 @@ from django.db import models
 
 from chats.models import PrivateChatRoom
 from chef.models import ChefProfile
-from clients.models import Client
+from clients.models import Client, ClientHomeLocation
 from dispatch.models import DispatchDriver
 from django.db.models.signals import pre_save
 
@@ -79,9 +79,17 @@ class CartItem(models.Model):
 
 
 
+ORDER_STATUS = [
+        ('Review', 'Review'),
+        ('Pending', 'Pending'),
+        ('Initiated', 'Initiated'),
+        ('Cooking', 'Cooking'),
+        ('Completed', 'Completed'),
 
+    ]
 class Order(models.Model):
     order_id = models.CharField(max_length=255, blank=True, null=True, unique=True)
+    Cart = models.ForeignKey(Cart, related_name='oeder_cart', on_delete=models.CASCADE, null=True, blank=True)
 
     client = models.ForeignKey(Client, related_name='client_orders', on_delete=models.CASCADE)
     dispatch = models.ForeignKey(DispatchDriver, related_name='dispatch_orders', on_delete=models.CASCADE, null=True, blank=True)
@@ -100,19 +108,21 @@ class Order(models.Model):
     delivery_fee = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     tax = models.DecimalField(max_digits=10, decimal_places=2, default=0)
 
-    location_name = models.CharField(max_length=200, null=True, blank=True)
-    digital_address = models.CharField(max_length=200, null=True, blank=True)
-    lat = models.DecimalField(default=0.0, max_digits=30, decimal_places=15, null=True, blank=True)
-    lng = models.DecimalField(default=0.0, max_digits=30, decimal_places=15, null=True, blank=True)
+    location = models.ForeignKey(ClientHomeLocation, related_name='client_ordder_locations', on_delete=models.CASCADE, null=True, blank=True)
+    distance = models.DecimalField(max_digits=10, decimal_places=3, default=0)
+
+    fast_order = models.BooleanField(default=False)
+
+
+
+
+    status = models.CharField(choices=ORDER_STATUS, default='Review', max_length=200)
 
 
     def __str__(self):
-        return f"Order #{self.id} for {self.customer.user.username}"
+        return f"Order #{self.id} for {self.client.user.first_name}"
 
-    def update_total_price(self):
-        total = sum(item.total_price() for item in self.items.all())
-        self.total_price = total
-        self.save()
+
 
 
 def pre_save_order_id_receiver(sender, instance, *args, **kwargs):

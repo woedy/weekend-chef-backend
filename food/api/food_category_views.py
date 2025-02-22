@@ -152,12 +152,15 @@ def get_food_category_details_view(request):
     if food_category_serializer:
         food_category = food_category_serializer.data
 
-    food_category_serializer = FoodCategoryDetailsSerializer(food_category, many=False)
 
     payload['message'] = "Successful"
     payload['data'] = food_category
 
     return Response(payload, status=status.HTTP_200_OK)
+
+
+
+
 
 @api_view(['POST', ])
 @permission_classes([IsAuthenticated, ])
@@ -228,6 +231,8 @@ def archive_food_category(request):
     data = {}
     errors = {}
 
+    total_value = 0.0
+    
     if request.method == 'POST':
         id = request.data.get('id', "")
 

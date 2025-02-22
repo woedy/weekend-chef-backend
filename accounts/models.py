@@ -126,9 +126,8 @@ class User(AbstractBaseUser):
 
 
     location_name = models.CharField(max_length=200, null=True, blank=True)
-    lat = models.DecimalField(default=0.0, max_digits=30, decimal_places=15, null=True, blank=True)
-    lng = models.DecimalField(default=0.0, max_digits=30, decimal_places=15, null=True, blank=True)
-
+    lat = models.DecimalField(default=0.0, max_digits=50, decimal_places=20, null=True, blank=True)
+    lng = models.DecimalField(default=0.0, max_digits=50, decimal_places=20, null=True, blank=True)
 
     is_active = models.BooleanField(default=True)
     is_online = models.BooleanField(default=True)

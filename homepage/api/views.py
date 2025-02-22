@@ -125,3 +125,70 @@ def get_admin_dashboard_data_view(request):
     payload['data'] = data
 
     return Response(payload, status=status.HTTP_200_OK)
+
+
+
+@api_view(['GET', ])
+@permission_classes([IsAuthenticated, ])
+@authentication_classes([TokenAuthentication, ])
+def get_chef_homepage_data_view(request):
+    payload = {}
+    data = {}
+    errors = {}
+
+    user_data = {}
+    notification_count = 0
+    total_sales = 0
+    pending_order_count = 0
+    total_order_count = 0
+    pending_orders_list = []
+    availability =  {}
+
+    user_id = request.query_params.get('user_id', None)
+    
+    if user_id is None:
+        errors['user_id'] = "User ID is required"
+
+    try:
+        user = get_user_model().objects.get(user_id=user_id)
+    except:
+        errors['user_id'] = ['User does not exist.']    
+        
+    if errors:
+        payload['message'] = "Errors"
+        payload['errors'] = errors
+        return Response(payload, status=status.HTTP_400_BAD_REQUEST)
+    
+
+    notifications = user.notifications.all().filter(read=False)
+    notification_count = notifications.count()
+
+
+
+    user_data['user_id'] = user.user_id
+    user_data['first_name'] = user.first_name
+    user_data['last_name'] = user.last_name
+    user_data['photo'] = user.photo.url
+
+    data['user_data'] = user_data
+    data['notification_count'] = notification_count
+
+    data['total_sales'] = total_sales
+    data['pending_order_count'] = pending_order_count
+    data['total_order_count'] = total_order_count
+    data['pending_orders_list'] = pending_orders_list
+    data['availability'] = availability
+
+    total_sales = 0
+    pending_order_count = 0
+    total_order_count = 0
+    pending_orders_list = []
+    availability =  {}
+
+
+    payload['message'] = "Successful"
+    payload['data'] = data
+
+    return Response(payload, status=status.HTTP_200_OK)
+
+

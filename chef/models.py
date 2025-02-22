@@ -5,6 +5,7 @@ from django.contrib.auth import get_user_model
 from django.db import models
 from django.db.models.signals import post_save, pre_save
 
+from food.models import Dish
 from weekend_chef_project.utils import unique_chef_id_generator
 
 
@@ -75,11 +76,8 @@ class ChefProfile(models.Model):
     kitchen_address = models.TextField(null=True, blank=True)
 
     kitchen_location = models.CharField(max_length=5000, null=True, blank=True)
-    lat = models.DecimalField(default=0.0, max_digits=30, decimal_places=15, null=True, blank=True)
-    lng = models.DecimalField(default=0.0, max_digits=30, decimal_places=15, null=True, blank=True)
-
-
-
+    lat = models.DecimalField(default=0.0, max_digits=50, decimal_places=20, null=True, blank=True)
+    lng = models.DecimalField(default=0.0, max_digits=50, decimal_places=20, null=True, blank=True)
 
     service_radius = models.IntegerField(default=10)  # km
     availability = models.CharField(max_length=100, choices=CHEF_AVAILABILITY, null=True, blank=True)
@@ -105,6 +103,31 @@ def pre_save_chef_id_receiver(sender, instance, *args, **kwargs):
         instance.chef_id = unique_chef_id_generator(instance)
 
 pre_save.connect(pre_save_chef_id_receiver, sender=ChefProfile)
+
+
+
+
+class ChefDish(models.Model):
+
+    chef = models.ForeignKey(ChefProfile, on_delete=models.CASCADE, related_name="chef_dishes")
+    dish = models.ForeignKey(Dish, on_delete=models.CASCADE, related_name="dish_chefs")
+
+    small_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    small_value = models.CharField(max_length=2000, null=True, blank=True)
+
+    medium_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    medium_value = models.CharField(max_length=2000, null=True, blank=True)
+
+    large_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    large_value = models.CharField(max_length=2000, null=True, blank=True)
+
+
+    is_archived = models.BooleanField(default=False)
+
+    active = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
 
 
 

@@ -40,11 +40,7 @@ class Client(models.Model):
     city = models.CharField(max_length=100, null=True, blank=True)
     postal_code = models.CharField(max_length=20, null=True, blank=True)
 
-    client_home_location = models.CharField(max_length=5000, null=True, blank=True)
-    lat = models.DecimalField(default=0.0, max_digits=30, decimal_places=15, null=True, blank=True)
-    lng = models.DecimalField(default=0.0, max_digits=30, decimal_places=15, null=True, blank=True)
-
-
+ 
     passport_id_number = models.CharField(null=True, blank=True, max_length=500)
 
     # Preferences
@@ -73,6 +69,23 @@ pre_save.connect(pre_save_client_id_receiver, sender=Client)
 
 
 
+
+class ClientHomeLocation(models.Model):
+    client = models.ForeignKey(Client, on_delete=models.CASCADE, related_name='clients_locations')
+
+    location_name = models.CharField(max_length=200, null=True, blank=True)
+    digital_address = models.CharField(max_length=200, null=True, blank=True)
+    lat = models.DecimalField(default=0.0, max_digits=50, decimal_places=20, null=True, blank=True)
+    lng = models.DecimalField(default=0.0, max_digits=50, decimal_places=20, null=True, blank=True)
+
+    is_archived = models.BooleanField(default=False)
+    active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+
+
+
 class DietaryPreference(models.Model):
     name = models.CharField(max_length=100, unique=True)
     description = models.TextField(blank=True)
@@ -93,22 +106,6 @@ class Allergy(models.Model):
 
     def __str__(self):
         return self.name
-
-
-
-class ClientHomeLocation(models.Model):
-    location_name = models.CharField(max_length=200, null=True, blank=True)
-    digital_address = models.CharField(max_length=200, null=True, blank=True)
-    lat = models.DecimalField(default=0.0, max_digits=30, decimal_places=15, null=True, blank=True)
-    lng = models.DecimalField(default=0.0, max_digits=30, decimal_places=15, null=True, blank=True)
-
-    is_deleted = models.BooleanField(default=False)
-
-    active = models.BooleanField(default=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-
 
 
 

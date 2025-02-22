@@ -12,10 +12,12 @@ from rest_framework.authentication import TokenAuthentication
 
 from activities.models import AllActivity
 from chef.models import ChefProfile
-from clients.models import Client
+from clients.models import Client, ClientHomeLocation
 from food.api.serializers import AllFoodCategorysSerializer
 from food.models import Dish, FoodCategory
-from orders.models import Cart, CartItem, CustomizationOption, CustomizationValue
+from orders.api.serializers import AllClosestChefSerializer
+from orders.models import Cart, CartItem, CustomizationOption, CustomizationValue, Order
+from weekend_chef_project.utils import haversine
 
 User = get_user_model()
 
@@ -372,12 +374,21 @@ def cart_item_detail_view(request):
         # Prepare the data to return in the response
         cart_item_data = {
             'id': cart_item.id,
-            'dish': cart_item.dish.name,  # Assuming dish has a 'name' field
+            'dish_id': cart_item.dish.dish_id,
+            'dish': cart_item.dish.name,  
+            'cover_photo': cart_item.dish.cover_photo.url,
+            'is_custom': cart_item.is_custom,
+            'value': cart_item.value,
+            'package': cart_item.package,
+            'package_price': cart_item.package_price,
             'quantity': cart_item.quantity,
             'special_notes': cart_item.special_notes,
             'customizations': [
-                {
+                {  
+                    'custom_option_id': cv.id,
                     'customization_option': cv.customization_option.name,
+                    'customization_photo': cv.customization_option.photo.url,
+                    'customization_price': cv.customization_option.price,
                     'quantity': cv.quantity,
                 }
                 for cv in cart_item.customizations.all()
@@ -393,6 +404,171 @@ def cart_item_detail_view(request):
         # Handle the case where the CartItem is not found
         payload['message'] = "CartItem not found."
         return Response(payload, status=status.HTTP_404_NOT_FOUND)
+
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+@authentication_classes([TokenAuthentication])
+def get_closest_chef_view(request):
+    payload = {}
+    data = {}
+    errors = {}
+
+    # Get search, client_id, and pagination parameters from query parameters
+    search_query = request.query_params.get('search', '')
+    user_id = request.query_params.get('user_id', None)
+    location_id = request.query_params.get('location_id', None)
+    radius = request.query_params.get('radius', None)
+    page_number = request.query_params.get('page', 1)
+    page_size = 10  # You can adjust the page size as needed
+
+    if not user_id:
+        errors['user_id'] = ['User ID is required.']
+
+    if not location_id:
+        errors['location_id'] = ['Location ID is required.']
+
+    # If a user_id is provided, filter carts by client
+    if user_id:
+        try:
+            client = Client.objects.get(user__user_id=user_id)
+        except Client.DoesNotExist:
+            errors['user_id'] = ['User not found.']
+
+            
+    if location_id:
+        try:
+            location = ClientHomeLocation.objects.get(id=location_id, client=client)
+        except ClientHomeLocation.DoesNotExist:
+            errors['location_id'] = ['Location not found.']
+
+    if errors:
+        payload['message'] = "Errors"
+        payload['errors'] = errors
+        return Response(payload, status=status.HTTP_400_BAD_REQUEST)
+
+    ## Filter CHEFS WITH CLIENT LOCATION
+    chefs = ChefProfile.objects.all()
+
+    nearby_chefs = []
+    
+    # Ensure radius is converted to float for comparison
+    try:
+        radius = float(radius)
+    except (ValueError, TypeError):
+        errors['radius'] = ['Radius must be a valid number.']
+    
+    if errors:
+        payload['message'] = "Errors"
+        payload['errors'] = errors
+        return Response(payload, status=status.HTTP_400_BAD_REQUEST)
+
+    for chef in chefs:
+        distance = haversine(location.lng, location.lat, chef.lng, chef.lat)
+
+        if distance <= radius:
+            # Create a dictionary for each chef
+            nearby_chefs.append({
+                "chef_id": chef.chef_id,
+                "chef_name": f"{chef.user.first_name} {chef.user.last_name}",
+                "chef_photo": chef.user.photo.url,
+                "kitchen_location": chef.kitchen_location,
+                "lat": chef.lat,
+                "lng": chef.lng,
+                "distance": distance,
+            })
+
+    # Sort the chefs by distance
+    nearby_chefs.sort(key=lambda x: x['distance'])
+    data['nearby_chefs'] = nearby_chefs
+
+    payload['message'] = "Success"
+    payload['data'] = data
+    return Response(payload, status=status.HTTP_200_OK)
+
+
+
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+@authentication_classes([TokenAuthentication])
+def get_my_locations_view(request):
+    """
+    View to retrieve all locations for a specific client, with optional pagination.
+    """
+    payload = {}
+    data = {}
+    errors = {}
+
+    # Get user_id and pagination parameters from query parameters
+    user_id = request.query_params.get('user_id', None)
+    page_number = request.query_params.get('page', 1)
+    page_size = 10  # You can adjust the page size as needed
+
+    # Check if user_id is provided
+    if not user_id:
+        errors['user_id'] = ['User ID is required.']
+        payload['message'] = "Errors"
+        payload['errors'] = errors
+        return Response(payload, status=status.HTTP_400_BAD_REQUEST)
+
+    # Retrieve the client object based on the user_id
+    try:
+        client = Client.objects.get(user__user_id=user_id)
+    except Client.DoesNotExist:
+        errors['user_id'] = ['Client not found.']
+        payload['message'] = "Client not found."
+        payload['errors'] = errors
+        return Response(payload, status=status.HTTP_404_NOT_FOUND)
+
+    # Retrieve the locations associated with the client
+    locations = ClientHomeLocation.objects.filter(client=client, is_archived=False)  # You may adjust is_archived logic
+
+    # Pagination
+    paginator = Paginator(locations, page_size)
+
+    try:
+        paginated_locations = paginator.page(page_number)
+    except PageNotAnInteger:
+        paginated_locations = paginator.page(1)
+    except EmptyPage:
+        paginated_locations = paginator.page(paginator.num_pages)
+
+    # Prepare data for response
+    location_data = []
+    for location in paginated_locations:
+        location_data.append({
+            'location_id': location.id,
+            'location_name': location.location_name,
+            'digital_address': location.digital_address,
+            'lat': location.lat,
+            'lng': location.lng,
+            'created_at': location.created_at,
+            'updated_at': location.updated_at
+        })
+
+    # Constructing pagination info
+    data['locations'] = location_data
+    data['pagination'] = {
+        'page_number': paginated_locations.number,
+        'total_pages': paginator.num_pages,
+        'next': paginated_locations.next_page_number() if paginated_locations.has_next() else None,
+        'previous': paginated_locations.previous_page_number() if paginated_locations.has_previous() else None,
+    }
+
+    payload['message'] = "Success"
+    payload['data'] = data
+    return Response(payload, status=status.HTTP_200_OK)
+
+
+
+
+
+
+
+
 @api_view(['PUT'])
 @permission_classes([IsAuthenticated])
 @authentication_classes([TokenAuthentication])
@@ -716,3 +892,144 @@ def delete_cart_item_view(request):
 
     return Response(payload)
 
+
+
+
+
+
+
+from datetime import datetime, timedelta
+from django.utils import timezone
+from rest_framework.response import Response
+from rest_framework.decorators import api_view, permission_classes, authentication_classes
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.authentication import TokenAuthentication
+from rest_framework import status
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+@authentication_classes([TokenAuthentication])
+def set_order_view(request):
+    payload = {}
+    errors = {}
+
+    if request.method == 'POST':
+        # Extract fields from the request body
+        user_id = request.data.get('user_id', "")
+        chef_id = request.data.get('chef_id', "")
+        location_id = request.data.get('location_id', "")
+        day = request.data.get('day', "")
+        time = request.data.get('time', "")
+        fast_order = request.data.get('fast_order', False)
+
+        # Perform initial validation
+        if not chef_id:
+            errors['chef_id'] = ['Chef ID is required.']
+        if not user_id:
+            errors['user_id'] = ['User ID is required.']
+        if not location_id:
+            errors['location_id'] = ['Location ID is required.']
+        #f not day:
+        #   errors['day'] = ['Day is required.']
+        #f not time:
+        #   errors['time'] = ['Time is required.']
+
+        # Validate the existence of client, chef, and dish
+        try:
+            client = Client.objects.get(user__user_id=user_id)
+        except Client.DoesNotExist:
+            errors['user_id'] = ['Client does not exist.']
+
+        try:
+            chef = ChefProfile.objects.get(chef_id=chef_id)
+        except ChefProfile.DoesNotExist:
+            errors['chef_id'] = ['Chef does not exist.']
+
+        try:
+            client_location = ClientHomeLocation.objects.get(id=location_id)
+        except ClientHomeLocation.DoesNotExist:
+            errors['location_id'] = ['Client location does not exist.']
+
+        if errors:
+            payload['message'] = "Validation Errors"
+            payload['errors'] = errors
+            return Response(payload, status=status.HTTP_400_BAD_REQUEST)
+
+        # Create or get the client's cart
+        try:
+            cart = Cart.objects.get(client=client)
+        except Cart.DoesNotExist:
+            errors['cart'] = ['Cart does not exist for this client.']
+            return Response(errors, status=status.HTTP_400_BAD_REQUEST)
+
+        # Fetch all cart items
+        cart_items = cart.items.filter(is_archived=False)
+
+        # Calculate total price from cart items
+        total_price = 0
+        for cart_item in cart_items:
+            total_price += cart_item.total_price()
+
+        # Initialize current_day to avoid UnboundLocalError
+        current_day = timezone.now().date()
+
+        # Calculate the delivery date and time based on the fast_order flag
+        if fast_order:
+            # If fast order is true, take current time and add 24 hours
+            current_datetime = timezone.now()
+            delivery_datetime = current_datetime + timedelta(hours=24)
+            delivery_date = delivery_datetime.date()
+            delivery_time = delivery_datetime.time()
+        else:
+            # Calculate the delivery date for the specified day (Saturday/Sunday)
+            delivery_date = None
+            if day.lower() == 'saturday':
+                delivery_date = current_day + timedelta(days=(5 - current_day.weekday()))  # Next Saturday
+            elif day.lower() == 'sunday':
+                delivery_date = current_day + timedelta(days=(6 - current_day.weekday()))  # Next Sunday
+            else:
+                # For other days, use the exact date provided
+                try:
+                    delivery_date = datetime.strptime(day, '%A').date()
+                except ValueError:
+                    errors['day'] = ['Invalid day format. Please use full weekday names (e.g., Monday).']
+                    return Response(errors, status=status.HTTP_400_BAD_REQUEST)
+
+            # Parse the time
+            try:
+                delivery_time = datetime.strptime(time, "%I:%M %p").time()
+            except ValueError:
+                errors['time'] = ['Invalid time format. Please use "12:00 pm" format.']
+                return Response(errors, status=status.HTTP_400_BAD_REQUEST)
+
+        # Create the order
+        order = Order.objects.create(
+            client=client,
+            Cart=cart,
+            total_price=total_price,
+            order_date=current_day,
+            order_time=delivery_time,
+            delivery_date=delivery_date,
+            delivery_time=delivery_time,
+            location=client_location,
+            status='Pending',  # Set to 'Pending' initially
+            fast_order=fast_order  # Set the fast_order flag
+        )
+
+        # Prepare the response data
+        order_data = {
+            "order_id": order.order_id,
+            "total_price": str(order.total_price),
+            "order_date": order.order_date.strftime('%Y-%m-%d'),
+            "delivery_date": order.delivery_date.strftime('%Y-%m-%d'),
+            "delivery_time": order.delivery_time.strftime('%I:%M %p'),
+            "status": order.status,
+       
+            "fast_order": order.fast_order
+        }
+
+        # Return success response
+        return Response({
+            'message': "Order placed successfully.",
+            'data': order_data
+        }, status=status.HTTP_200_OK)
